@@ -9,7 +9,7 @@ extension Decimal {
 }
 
 /// Decodes a JSON string like `"45.00"` into `Decimal`. A JSON number here is a bug.
-struct MoneyString: Codable, Equatable {
+struct MoneyString: Codable, Equatable, Sendable {
     let value: Decimal
 
     init(from decoder: Decoder) throws {

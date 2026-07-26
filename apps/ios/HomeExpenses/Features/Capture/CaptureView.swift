@@ -1,18 +1,90 @@
+import PhotosUI
 import SwiftUI
 
-/// Camera / VisionKit scanner / photo picker, with reorderable thumbnails
-/// (PROJECT_SPEC.md §10, screen 2). Image downscale + JPEG encode happens off the main actor
-/// in CaptureViewModel, never here.
+/// Photo picker with reorderable thumbnails; "Analyze" uploads and starts the parse
+/// (PROJECT_SPEC.md §10, screen 2).
 struct CaptureView: View {
+    @StateObject private var viewModel = CaptureViewModel()
+    var onReceiptCreated: (String) -> Void
+
     var body: some View {
-        ContentUnavailableView(
-            "Add a receipt",
-            systemImage: "camera",
-            description: Text("Ships in M1.")
-        )
+        VStack(spacing: 16) {
+            if viewModel.thumbnails.isEmpty {
+                ContentUnavailableView(
+                    "Add a receipt",
+                    systemImage: "camera",
+                    description: Text("Pick one or more screenshots or photos of your receipt.")
+                )
+            } else {
+                List {
+                    ForEach(viewModel.thumbnails) { thumbnail in
+                        HStack {
+                            Image(uiImage: thumbnail.uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            Spacer()
+                            Button(role: .destructive) {
+                                viewModel.remove(thumbnail)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .onMove(perform: viewModel.move)
+                }
+            }
+
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+                    .padding(.horizontal)
+            }
+
+            PhotosPicker(
+                selection: $viewModel.selectedItems,
+                maxSelectionCount: 10,
+                matching: .images
+            ) {
+                Label("Choose photos", systemImage: "photo.on.rectangle")
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                Task {
+                    if let receiptId = await viewModel.analyze() {
+                        onReceiptCreated(receiptId)
+                    }
+                }
+            } label: {
+                if viewModel.isAnalyzing {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text("Analyze")
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!viewModel.canAnalyze)
+            .padding(.horizontal)
+        }
+        .padding(.vertical)
+        .navigationTitle("Add Receipt")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
+        }
     }
 }
 
 #Preview {
-    CaptureView()
+    NavigationStack {
+        CaptureView(onReceiptCreated: { _ in })
+    }
 }

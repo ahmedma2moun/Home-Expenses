@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "tsx prisma/scripts/test-db.ts",
-    "migrate:drift-check": "prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --exit-code",
+    "migrate:drift-check": "bash -c 'set -a; [ -f .env ] && . .env; set +a; prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code'",
     "seed": "tsx prisma/seed.ts",
     "eval:extraction": "tsx scripts/eval-extraction.ts",
     "knip": "knip --no-exit-code"

@@ -2,46 +2,50 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 import { AppError, dataEnvelope, errorEnvelope } from "@/lib/api/envelope";
-import { getUserId } from "@/lib/auth/session";
+import { DEV_USER_ID } from "@/lib/api/devUser";
 
 interface HandlerContext {
   userId: string;
   requestId: string;
   req: Request;
   body: unknown;
+  /** Override the default 200 response status, e.g. 202 for an async-parse receipt creation. */
+  setStatus: (status: number) => void;
 }
 
 type Handler<T> = (ctx: HandlerContext) => Promise<T>;
 
-interface WithApiOptions {
-  /** Set false for public routes (auth exchange, health). Defaults to true. */
-  auth?: boolean;
-}
-
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
-export async function withApi<T>(
-  req: Request,
-  handler: Handler<T>,
-  options: WithApiOptions = {},
-): Promise<NextResponse> {
+export async function withApi<T>(req: Request, handler: Handler<T>): Promise<NextResponse> {
   const requestId = randomUUID();
-  const requireAuth = options.auth ?? true;
+  let status = 200;
 
   try {
-    const userId = requireAuth ? await getUserId(req) : "";
     const body = BODY_METHODS.has(req.method) ? await parseJsonBody(req) : undefined;
 
-    const data = await handler({ userId, requestId, req, body });
-    return NextResponse.json(dataEnvelope(data), { status: 200 });
+    const data = await handler({
+      userId: DEV_USER_ID,
+      requestId,
+      req,
+      body,
+      setStatus: (next) => {
+        status = next;
+      },
+    });
+    return NextResponse.json(dataEnvelope(data), { status });
   } catch (error) {
     return mapError(error, requestId);
   }
 }
 
 async function parseJsonBody(req: Request): Promise<unknown> {
+  const text = await req.text();
+  if (text.trim() === "") {
+    return undefined;
+  }
   try {
-    return await req.json();
+    return JSON.parse(text) as unknown;
   } catch {
     throw new AppError("VALIDATION_ERROR", "Request body must be valid JSON.", 400);
   }
@@ -60,7 +64,7 @@ function toAppError(error: unknown): AppError {
     return error;
   }
   if (error instanceof ZodError) {
-    return new AppError("VALIDATION_ERROR", "Request body failed validation.", 400, {
+    return new AppError("VALIDATION_ERROR", "Request failed validation.", 400, {
       issues: error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
     });
   }

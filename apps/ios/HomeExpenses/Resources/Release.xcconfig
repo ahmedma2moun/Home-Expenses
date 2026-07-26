@@ -1,2 +1,2 @@
 // Production backend. Point at Preview instead for a TestFlight build against a PR.
-API_BASE_URL = https:/$()/home-expenses.vercel.app
+API_BASE_URL = https:/$()/home-expenses-theta.vercel.app

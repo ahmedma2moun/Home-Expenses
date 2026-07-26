@@ -1,6 +1,21 @@
-import { stubRoute } from "@/lib/api/stub";
+import { withApi } from "@/lib/api/withApi";
+import { discardReceipt, getReceipt } from "@/lib/services/receipts";
 
 export const runtime = "nodejs";
 
-export const GET = stubRoute("GET /api/v1/receipts/:id");
-export const DELETE = stubRoute("DELETE /api/v1/receipts/:id");
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(req: Request, { params }: RouteParams) {
+  const { id } = await params;
+  return withApi(req, ({ userId }) => getReceipt(userId, id));
+}
+
+export async function DELETE(req: Request, { params }: RouteParams) {
+  const { id } = await params;
+  return withApi(req, async ({ userId }) => {
+    await discardReceipt(userId, id);
+    return { id, discarded: true };
+  });
+}

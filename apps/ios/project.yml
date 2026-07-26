@@ -1,0 +1,43 @@
+name: HomeExpenses
+options:
+  bundleIdPrefix: com.homeexpenses
+  deploymentTarget:
+    iOS: "17.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+
+targets:
+  HomeExpenses:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: HomeExpenses
+        excludes:
+          - Resources/Info.plist
+          - Resources/Debug.xcconfig
+          - Resources/Release.xcconfig
+    configFiles:
+      Debug: HomeExpenses/Resources/Debug.xcconfig
+      Release: HomeExpenses/Resources/Release.xcconfig
+    info:
+      path: HomeExpenses/Resources/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.homeexpenses.HomeExpenses
+        PRODUCT_NAME: HomeExpenses
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: false
+        ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: true
+    scheme:
+      testTargets: []
+      gatherCoverageData: false
