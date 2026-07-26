@@ -1,0 +1,12 @@
+{
+  "promptVersion": null,
+  "itemRecall": null,
+  "itemPrecision": null,
+  "categoryAccuracy": null,
+  "totalExactMatchRate": null,
+  "schemaInvalidRate": null,
+  "meanInputTokens": null,
+  "meanOutputTokens": null,
+  "p50LatencyMs": null,
+  "note": "No baseline yet — extraction ships in M1. prompt-eval-runner writes this once fixtures/receipts/ is populated."
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_BASE_URL</key>
+	<string>$(API_BASE_URL)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Home Expenses uses the camera to photograph receipts. Images are sent to the Claude API to extract items and categories.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Home Expenses reads photos you pick to import receipt screenshots. Images are sent to the Claude API to extract items and categories.</string>
+</dict>
+</plist>

@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  appleUserId String    @unique
+  email       String?
+  displayName String?
+  currency    String    @default("EGP") // default display currency
+  createdAt   DateTime  @default(now())
+  receipts    Receipt[]
+  orders      Order[]
+}
+
+model Category {
+  id        String      @id // stable slug, e.g. "produce"
+  name      String
+  emoji     String
+  sortOrder Int
+  isActive  Boolean     @default(true)
+  items     OrderItem[]
+}
+
+enum ReceiptStatus {
+  UPLOADED
+  PARSING
+  PARSED
+  FAILED
+  CONFIRMED
+  DISCARDED
+}
+
+model Receipt {
+  id            String         @id @default(cuid())
+  userId        String
+  status        ReceiptStatus  @default(UPLOADED)
+  images        ReceiptImage[]
+  parsedPayload Json? // raw Claude extraction result
+  parseError    String?
+  model         String?
+  inputTokens   Int?
+  outputTokens  Int?
+  latencyMs     Int?
+  parseAttempts Int            @default(0)
+  clientRef     String? // client-generated idempotency key
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  order         Order?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, clientRef])
+  @@index([userId, status])
+}
+
+model ReceiptImage {
+  id        String  @id @default(cuid())
+  receiptId String
+  blobKey   String
+  position  Int
+  width     Int?
+  height    Int?
+  bytes     Int?
+  mimeType  String
+
+  receipt Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@unique([receiptId, position])
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  userId      String
+  receiptId   String?  @unique
+  merchant    String
+  purchasedAt DateTime? // actual receipt date/time, nullable
+  periodMonth DateTime // normalized YYYY-MM-01 — BR-4
+  currency    String
+  subtotal    Decimal  @db.Decimal(12, 2)
+  tax         Decimal  @db.Decimal(12, 2) @default(0)
+  discount    Decimal  @db.Decimal(12, 2) @default(0)
+  total       Decimal  @db.Decimal(12, 2)
+  notes       String?
+  source      String   @default("receipt") // receipt | manual
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items   OrderItem[]
+  user    User        @relation(fields: [userId], references: [id])
+  receipt Receipt?    @relation(fields: [receiptId], references: [id])
+
+  @@index([userId, periodMonth])
+  @@index([userId, merchant])
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  name           String
+  normalizedName String? // lowercased/trimmed, for merchant-item memory
+  quantity       Decimal  @db.Decimal(10, 3) @default(1)
+  unit           String? // kg, L, pcs
+  unitPrice      Decimal? @db.Decimal(12, 2)
+  lineTotal      Decimal  @db.Decimal(12, 2)
+  categoryId     String
+  aiCategoryId   String? // what Claude proposed, before user edit
+  confidence     Float?
+  position       Int
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([orderId])
+  @@index([categoryId])
+}
+
+model MonthlySummary {
+  // materialized aggregate, recomputed on order write
+  userId      String
+  periodMonth DateTime
+  categoryId  String
+  totalAmount Decimal  @db.Decimal(12, 2)
+  itemCount   Int
+  orderCount  Int
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, periodMonth, categoryId])
+  @@index([userId, periodMonth])
+}
+
+model MonthComparison {
+  // cached AI narrative
+  id          String   @id @default(cuid())
+  userId      String
+  monthA      DateTime
+  monthB      DateTime
+  dataVersion String // hash of both months' summaries
+  payload     Json // { headline, drivers[], anomalies[], suggestions[] }
+  model       String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, monthA, monthB, dataVersion])
+}
+
+model ItemCategoryOverride {
+  // learning loop / eval dataset
+  id              String   @id @default(cuid())
+  userId          String
+  merchant        String
+  itemName        String
+  aiCategoryId    String?
+  finalCategoryId String
+  createdAt       DateTime @default(now())
+
+  @@index([userId, merchant, itemName])
+}

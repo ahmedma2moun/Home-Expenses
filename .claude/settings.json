@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(prisma db push:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma migrate reset:*)",
+      "Bash(git push --force:*)",
+      "Read(./apps/web/.env*)",
+      "Read(./**/*.p8)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "./scripts/guard-db-commands.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "./scripts/format-changed.sh" }]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^db-migration-guard$",
+        "hooks": [{ "type": "command", "command": "npm run --prefix apps/web migrate:drift-check" }]
+      }
+    ]
+  }
+}
