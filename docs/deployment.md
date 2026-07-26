@@ -141,6 +141,30 @@ explicitly on the command line — the `shadowDatabaseUrl` field in `schema.pris
 deploy` doesn't need a shadow database), but if you wire the drift check into a CI workflow, pass
 `--shadow-database-url "$SHADOW_DATABASE_URL"` on that line or it will fail immediately.
 
+### Using Supabase instead of Neon
+
+This repo's guidance defaults to Neon, but Supabase Postgres works too — with one gotcha. Supabase
+exposes three different connection strings, and picking the wrong one for `DIRECT_URL` hangs the
+Vercel build indefinitely (it connects, then never completes — no error, just stuck):
+
+| Type (Supabase dashboard → Project Settings → Database) | Port | Host | IPv4 from Vercel? |
+|---|---|---|---|
+| Direct connection | 5432 | `db.<ref>.supabase.co` | **No — IPv6 only** unless you buy the add-on |
+| Transaction pooler | 6543 | `aws-0-<region>.pooler.supabase.com` | Yes |
+| Session pooler | 5432 | `aws-0-<region>.pooler.supabase.com` | Yes |
+
+Vercel's build environment has no outbound IPv6, so pointing `DIRECT_URL` at the Direct connection
+(or leaving it unset, which can fall back to it) makes `prisma migrate deploy` try to reach a host
+it can never route to — it hangs rather than failing fast. Use:
+
+- `DATABASE_URL` = **Transaction pooler** string (port `6543`) — the app's normal runtime queries.
+- `DIRECT_URL` = **Session pooler** string (port `5432`, same pooler host, different port from
+  Transaction pooler) — migrations need session-level Postgres features that the transaction
+  pooler doesn't support, but the session pooler still routes over IPv4.
+
+Never use the Direct connection string for either variable on Vercel unless you've paid for
+Supabase's IPv4 add-on.
+
 ---
 
 ## 7. Seed the category taxonomy
@@ -232,6 +256,7 @@ State the rollback plan in the PR description for every migration, per the `db-m
 | Every route 404s with Vercel's own `NOT_FOUND` page (not your app's response) | Root Directory is wrong; the "build" completed in under a second with no real build steps in the logs — that's the tell |
 | "The specified pattern ... doesn't match any Serverless Functions inside the `api` directory" | Leftover `functions` key in `vercel.json` — remove it and set `export const maxDuration` in the route file instead (see §5) |
 | Build fails on `prisma migrate deploy` | Bad `DATABASE_URL`/`DIRECT_URL`, or a migration file was hand-edited after being applied elsewhere |
+| `prisma migrate deploy` hangs indefinitely (no error, just stuck) | On Supabase: `DIRECT_URL` is pointed at the IPv6-only Direct connection. Use the Session pooler string instead — see §6 |
 | Route 500s with a Prisma "Edge Runtime" error | That route is missing `export const runtime = 'nodejs'` |
 | Route times out on receipt upload/reparse/compare | Raise `export const maxDuration` in that route file — check your plan's ceiling first |
 | `/api/v1/health` shows `ai.ok: false` | The env var for the configured provider (`GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) isn't set on this environment |

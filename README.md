@@ -113,6 +113,11 @@ connection strings into the project automatically.
 **Option C — local Postgres** for offline dev: `DATABASE_URL` and `DIRECT_URL` can both point at your
 local instance.
 
+**Option D — Supabase:** works, but pick the right connection string for `DIRECT_URL` or
+`prisma migrate deploy` hangs forever on Vercel (IPv6-only Direct connection, no route from
+Vercel's build environment) — use the **Session pooler** string instead. Full details:
+[`docs/deployment.md`](docs/deployment.md) §6.
+
 Then apply the schema and seed the category taxonomy:
 
 ```bash
