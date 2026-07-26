@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const receipt = await createReceipt(userId, input);
 
     if (receipt.status === "PARSING") {
-      after(() => runExtraction(receipt.id));
+      after(() => runExtraction(receipt.id, input.images));
     }
 
     setStatus(202);

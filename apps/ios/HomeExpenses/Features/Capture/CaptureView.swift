@@ -5,7 +5,7 @@ import SwiftUI
 /// (PROJECT_SPEC.md §10, screen 2).
 struct CaptureView: View {
     @StateObject private var viewModel = CaptureViewModel()
-    var onReceiptCreated: (String) -> Void
+    var onReceiptCreated: (CreatedReceipt) -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -47,7 +47,7 @@ struct CaptureView: View {
 
             PhotosPicker(
                 selection: $viewModel.selectedItems,
-                maxSelectionCount: 10,
+                maxSelectionCount: 6,
                 matching: .images
             ) {
                 Label("Choose photos", systemImage: "photo.on.rectangle")
@@ -56,8 +56,8 @@ struct CaptureView: View {
 
             Button {
                 Task {
-                    if let receiptId = await viewModel.analyze() {
-                        onReceiptCreated(receiptId)
+                    if let created = await viewModel.analyze() {
+                        onReceiptCreated(created)
                     }
                 }
             } label: {
@@ -85,6 +85,6 @@ struct CaptureView: View {
 
 #Preview {
     NavigationStack {
-        CaptureView(onReceiptCreated: { _ in })
+        CaptureView(onReceiptCreated: { (_: CreatedReceipt) in })
     }
 }

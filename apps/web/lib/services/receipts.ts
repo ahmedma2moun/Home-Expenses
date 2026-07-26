@@ -1,9 +1,8 @@
 import { prisma, type ReceiptStatus } from "@/lib/db/prisma";
 import { AppError } from "@/lib/api/envelope";
-import { fetchBlobBase64, getReadUrl } from "@/lib/services/blob";
 import { extractReceipt } from "@/lib/services/extraction";
 import { coerceCategorySlug } from "@/lib/services/categoryTaxonomy";
-import type { ReceiptCreateRequest } from "@/lib/api/schemas/receipts";
+import type { ReceiptCreateRequest, ReceiptImageInput } from "@/lib/api/schemas/receipts";
 
 export interface ReceiptSummary {
   id: string;
@@ -33,9 +32,9 @@ export async function createReceipt(
       status: "PARSING",
       images: {
         create: input.images.map((image) => ({
-          blobKey: image.blobKey,
           position: image.position,
           mimeType: image.mimeType,
+          bytes: Math.floor((image.base64.length * 3) / 4),
         })),
       },
     },
@@ -44,26 +43,24 @@ export async function createReceipt(
   return { id: receipt.id, status: receipt.status };
 }
 
-/** Runs after the 202 response is sent (see the route's `after()` call) — never throws. */
-export async function runExtraction(receiptId: string): Promise<void> {
-  const receipt = await prisma.receipt.findUnique({
-    where: { id: receiptId },
-    include: { images: { orderBy: { position: "asc" } } },
-  });
+/**
+ * Runs after the 202 response is sent (see the route's `after()` call) — never throws. The images
+ * are passed in directly from the request that triggered this run (no blob storage to fetch from).
+ */
+export async function runExtraction(receiptId: string, images: ReceiptImageInput[]): Promise<void> {
+  const receipt = await prisma.receipt.findUnique({ where: { id: receiptId } });
   if (!receipt) {
     return;
   }
 
   try {
-    const images = await Promise.all(
-      receipt.images.map(async (image) => ({
-        base64: await fetchBlobBase64(image.blobKey),
+    const outcome = await extractReceipt(
+      images.map((image) => ({
+        base64: image.base64,
         mediaType: image.mimeType,
         position: image.position,
       })),
     );
-
-    const outcome = await extractReceipt(images);
 
     if (!outcome.result.isReceipt) {
       await prisma.receipt.update({
@@ -119,7 +116,7 @@ export interface ReceiptDetail {
   status: ReceiptStatus;
   parsedPayload: unknown;
   parseError: string | null;
-  images: { blobKey: string; position: number; readUrl: string }[];
+  images: { position: number; mimeType: string }[];
 }
 
 export async function getReceipt(userId: string, receiptId: string): Promise<ReceiptDetail> {
@@ -131,23 +128,19 @@ export async function getReceipt(userId: string, receiptId: string): Promise<Rec
     throw new AppError("NOT_FOUND", "Receipt not found.", 404);
   }
 
-  const images = await Promise.all(
-    receipt.images.map(async (image) => ({
-      blobKey: image.blobKey,
-      position: image.position,
-      readUrl: await getReadUrl(image.blobKey),
-    })),
-  );
-
   return {
     id: receipt.id,
     status: receipt.status,
     parsedPayload: receipt.parsedPayload,
     parseError: receipt.parseError,
-    images,
+    images: receipt.images.map((image) => ({ position: image.position, mimeType: image.mimeType })),
   };
 }
 
+/**
+ * Retries a FAILED parse. No blob storage means the server never retained the original images —
+ * the client must resend them, exactly like the initial `POST /receipts` call.
+ */
 export async function reparseReceipt(userId: string, receiptId: string): Promise<ReceiptSummary> {
   const receipt = await prisma.receipt.findFirst({ where: { id: receiptId, userId } });
   if (!receipt) {
@@ -174,6 +167,5 @@ export async function discardReceipt(userId: string, receiptId: string): Promise
     throw new AppError("VALIDATION_ERROR", "A confirmed receipt cannot be discarded.", 400);
   }
 
-  // Blob cleanup runs as a separate async job (PROJECT_SPEC.md §9) — not implemented until M6.
   await prisma.receipt.update({ where: { id: receiptId }, data: { status: "DISCARDED" } });
 }

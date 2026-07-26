@@ -61,13 +61,12 @@ model Receipt {
   @@index([userId, status])
 }
 
+// No blob storage — images are received as base64, used once for extraction, and never
+// persisted (PROJECT_SPEC.md §2 is superseded here). This row is bookkeeping only.
 model ReceiptImage {
   id        String  @id @default(cuid())
   receiptId String
-  blobKey   String
   position  Int
-  width     Int?
-  height    Int?
   bytes     Int?
   mimeType  String
 

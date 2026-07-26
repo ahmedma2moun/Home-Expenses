@@ -27,10 +27,6 @@ targets:
     configFiles:
       Debug: HomeExpenses/Resources/Debug.xcconfig
       Release: HomeExpenses/Resources/Release.xcconfig
-    info:
-      path: HomeExpenses/Resources/Info.plist
-      properties:
-        UILaunchScreen: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.homeexpenses.HomeExpenses
@@ -38,6 +34,11 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: false
         ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: true
+        # Plain existing file — do NOT use xcodegen's `info:` block here. That block treats the
+        # path as an output it owns and REGENERATES it from `properties:` on every `generate`,
+        # silently deleting hand-written keys (API_BASE_URL, usage descriptions). Learned the hard
+        # way — see git history on Resources/Info.plist.
+        INFOPLIST_FILE: HomeExpenses/Resources/Info.plist
     scheme:
       testTargets: []
       gatherCoverageData: false

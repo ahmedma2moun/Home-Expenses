@@ -20,5 +20,11 @@
 	<string>1</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>API_BASE_URL</key>
+	<string>$(API_BASE_URL)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Home Expenses uses the camera to photograph receipts. Images are sent to the AI provider to extract items and categories.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Home Expenses reads photos you pick to import receipt screenshots. Images are sent to the AI provider to extract items and categories.</string>
 </dict>
 </plist>

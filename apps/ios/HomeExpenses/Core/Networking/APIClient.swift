@@ -27,25 +27,6 @@ actor APIClient {
         try await send(path: path, method: "POST", body: Optional<Data>.none)
     }
 
-    /// Direct PUT to a Vercel Blob signed upload URL (PROJECT_SPEC.md §2) — not our API envelope.
-    func uploadFile(to url: URL, data: Data, contentType: String) async throws {
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-
-        let response: URLResponse
-        do {
-            (_, response) = try await session.upload(for: request, from: data)
-        } catch {
-            throw APIError.transport(error)
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            throw APIError.server(status: status, payload: nil)
-        }
-    }
-
     private func send<Response: Decodable>(
         path: String,
         method: String,

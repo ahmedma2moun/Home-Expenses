@@ -3,7 +3,14 @@ import PhotosUI
 import SwiftUI
 import UIKit
 
-/// Uploads captured images and creates the Receipt (BR-1/BR-2). Image downscale + JPEG encoding
+struct CreatedReceipt {
+    let receiptId: String
+    /// Kept so ParsingView can resend on retry — no blob storage means the server never retains
+    /// the originals (PROJECT_SPEC.md §2 is superseded here).
+    let images: [ReceiptImageInput]
+}
+
+/// Encodes captured images and creates the Receipt (BR-1/BR-2). Image downscale + JPEG encoding
 /// happens here, never in the view.
 @MainActor
 final class CaptureViewModel: ObservableObject {
@@ -43,46 +50,31 @@ final class CaptureViewModel: ObservableObject {
         thumbnails = images
     }
 
-    /// Downscales + uploads every image, then creates the Receipt. Returns its id on success.
-    func analyze() async -> String? {
+    /// Downscales every image, base64-encodes it into the request body, and creates the Receipt.
+    func analyze() async -> CreatedReceipt? {
         guard canAnalyze else { return nil }
         isAnalyzing = true
         errorMessage = nil
         defer { isAnalyzing = false }
 
         do {
-            var processedImages: [Data] = []
-            for thumbnail in thumbnails {
+            var images: [ReceiptImageInput] = []
+            for (index, thumbnail) in thumbnails.enumerated() {
                 guard let data = ImagePreprocessor.process(thumbnail.uiImage) else {
                     throw CaptureError.encodingFailed
                 }
-                processedImages.append(data)
+                images.append(
+                    ReceiptImageInput(
+                        base64: data.base64EncodedString(),
+                        position: index,
+                        mimeType: "image/jpeg"
+                    )
+                )
             }
 
-            let uploadRequest = UploadTokenRequest(
-                files: processedImages.map { UploadFileRequest(mimeType: "image/jpeg", bytes: $0.count) }
-            )
-            let tokenResponse: UploadTokenResponse = try await client.post(
-                "/api/v1/uploads/token",
-                body: uploadRequest
-            )
-            guard tokenResponse.targets.count == processedImages.count else {
-                throw CaptureError.uploadMismatch
-            }
-
-            for (index, target) in tokenResponse.targets.enumerated() {
-                guard let url = URL(string: target.uploadUrl) else {
-                    throw CaptureError.invalidUploadURL
-                }
-                try await client.uploadFile(to: url, data: processedImages[index], contentType: "image/jpeg")
-            }
-
-            let images = tokenResponse.targets.enumerated().map { index, target in
-                ReceiptImageInput(blobKey: target.blobKey, position: index, mimeType: "image/jpeg")
-            }
             let request = ReceiptCreateRequest(clientRef: UUID().uuidString, images: images)
             let receipt: ReceiptSummaryDTO = try await client.post("/api/v1/receipts", body: request)
-            return receipt.id
+            return CreatedReceipt(receiptId: receipt.id, images: images)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Something went wrong."
             return nil
@@ -92,14 +84,10 @@ final class CaptureViewModel: ObservableObject {
 
 enum CaptureError: LocalizedError {
     case encodingFailed
-    case uploadMismatch
-    case invalidUploadURL
 
     var errorDescription: String? {
         switch self {
         case .encodingFailed: return "Couldn't process one of the images."
-        case .uploadMismatch: return "Upload targets didn't match the number of images."
-        case .invalidUploadURL: return "Received an invalid upload URL."
         }
     }
 }

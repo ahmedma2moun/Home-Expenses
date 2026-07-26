@@ -54,7 +54,18 @@ async function parseJsonBody(req: Request): Promise<unknown> {
 function mapError(error: unknown, requestId: string): NextResponse {
   const appError = toAppError(error);
 
-  console.error("api_error", { requestId, code: appError.code, httpStatus: appError.httpStatus });
+  // The underlying error message/stack is operational detail (never receipt PII — that's covered
+  // by CLAUDE.md rule 6 and enforced by never logging parsedPayload/item/merchant fields anywhere)
+  // and is essential for diagnosing a 500 from the Vercel runtime logs.
+  console.error("api_error", {
+    requestId,
+    code: appError.code,
+    httpStatus: appError.httpStatus,
+    cause:
+      error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : error,
+  });
 
   return NextResponse.json(errorEnvelope(appError), { status: appError.httpStatus });
 }

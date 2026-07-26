@@ -10,17 +10,19 @@ struct ReceiptFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var path: [Step] = []
     @State private var parsedByReceiptId: [String: ParsedReceiptDTO] = [:]
+    @State private var imagesByReceiptId: [String: [ReceiptImageInput]] = [:]
     var onSaved: () -> Void
 
     var body: some View {
         NavigationStack(path: $path) {
-            CaptureView(onReceiptCreated: { receiptId in
-                path.append(.parsing(receiptId))
+            CaptureView(onReceiptCreated: { created in
+                imagesByReceiptId[created.receiptId] = created.images
+                path.append(.parsing(created.receiptId))
             })
             .navigationDestination(for: Step.self) { step in
                 switch step {
                 case .parsing(let receiptId):
-                    ParsingView(receiptId: receiptId) { detail in
+                    ParsingView(receiptId: receiptId, images: imagesByReceiptId[receiptId] ?? []) { detail in
                         guard let parsed = detail.parsedPayload else { return }
                         parsedByReceiptId[receiptId] = parsed
                         path.append(.review(receiptId))

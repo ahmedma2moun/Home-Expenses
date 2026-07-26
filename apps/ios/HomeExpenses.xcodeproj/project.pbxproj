@@ -21,7 +21,6 @@
 		9D0343D582BD7FB31088DAB2 /* FlexibleDateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445C031F812957E898B554C5 /* FlexibleDateParser.swift */; };
 		B661D087FBE5AC2800FD970C /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812F308DA6F71D3C551E6C12 /* CaptureView.swift */; };
 		C5A02E4009CB7335655AA410 /* Money+FormatStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B63B9AF80968D3DFB24C411 /* Money+FormatStyle.swift */; };
-		CDA35CE6B1A3D82DA278C30C /* UploadDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A0951A0140B0C29B7DB508 /* UploadDTOs.swift */; };
 		CF91A980C075542E723CC3C7 /* CategoryDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F3EE93909555DA3BEE5F756 /* CategoryDTO.swift */; };
 		D1E0AC6B8035DA874DA34C6B /* ParsingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08E14867578B3B76789A652E /* ParsingView.swift */; };
 		E238DC1E9FB56D968554107B /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D4D5FE2DB906A11CC98C7E /* CaptureViewModel.swift */; };
@@ -39,8 +38,7 @@
 		0BC16662B8090A9FBD8592B8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		0D60391D2F08DD3D4F0E9714 /* ReceiptDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptDTOs.swift; sourceTree = "<group>"; };
 		17985ED8CF7ED039F0F84079 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
-		18A0951A0140B0C29B7DB508 /* UploadDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadDTOs.swift; sourceTree = "<group>"; };
-		18ED1CF8347D06BE638A5669 /* HomeExpenses.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HomeExpenses.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		18ED1CF8347D06BE638A5669 /* HomeExpenses.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HomeExpenses.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		203D8C4272872FFB1D07E853 /* ParsingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsingViewModel.swift; sourceTree = "<group>"; };
 		2C2219146CE42928D7934A47 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		30BBDCA99DCE3FBF7BADA690 /* ConfirmDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmDTOs.swift; sourceTree = "<group>"; };
@@ -185,7 +183,6 @@
 				30BBDCA99DCE3FBF7BADA690 /* ConfirmDTOs.swift */,
 				EBDB14208335B59CB9287406 /* HealthDTO.swift */,
 				0D60391D2F08DD3D4F0E9714 /* ReceiptDTOs.swift */,
-				18A0951A0140B0C29B7DB508 /* UploadDTOs.swift */,
 			);
 			path = DTOs;
 			sourceTree = "<group>";
@@ -238,6 +235,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 7E24DA5F3C0AB89CED65F7B9 /* Build configuration list for PBXProject "HomeExpenses" */;
 			developmentRegion = en;
@@ -286,7 +285,6 @@
 				43A3D08919A4DF20864CE1A8 /* RootView.swift in Sources */,
 				FF6A616B36C3340D333E6EBC /* SummaryView.swift in Sources */,
 				997F9B8A5084AB07B3E54255 /* SummaryViewModel.swift in Sources */,
-				CDA35CE6B1A3D82DA278C30C /* UploadDTOs.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,7 +298,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = JH2RL79XCP;
 				INFOPLIST_FILE = HomeExpenses/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -386,7 +383,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = JH2RL79XCP;
 				INFOPLIST_FILE = HomeExpenses/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

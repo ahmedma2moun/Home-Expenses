@@ -1,13 +1,19 @@
 import Foundation
 
+/// No blob storage — images travel as base64 in the request body, used once in memory server-side
+/// and never persisted.
 struct ReceiptImageInput: Encodable, Sendable {
-    let blobKey: String
+    let base64: String
     let position: Int
     let mimeType: String
 }
 
 struct ReceiptCreateRequest: Encodable, Sendable {
     let clientRef: String
+    let images: [ReceiptImageInput]
+}
+
+struct ReparseRequest: Encodable, Sendable {
     let images: [ReceiptImageInput]
 }
 
@@ -51,9 +57,8 @@ struct ParsedReceiptDTO: Decodable, Sendable {
 }
 
 struct ReceiptImageDetailDTO: Decodable, Sendable {
-    let blobKey: String
     let position: Int
-    let readUrl: String
+    let mimeType: String
 }
 
 struct ReceiptDetailDTO: Decodable, Sendable {

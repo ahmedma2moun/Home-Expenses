@@ -1,2 +1,2 @@
 // Local development — points at your machine (simulator) or a Preview deployment (device).
-API_BASE_URL = http:/$()/localhost:3000
+API_BASE_URL = http:/$()/home-expenses-theta.vercel.app

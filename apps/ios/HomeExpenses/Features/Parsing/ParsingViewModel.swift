@@ -14,11 +14,14 @@ final class ParsingViewModel: ObservableObject {
 
     private let client = APIClient.shared
     private let receiptId: String
+    /// No blob storage — a retry must resend the original images (PROJECT_SPEC.md §2 superseded).
+    private let images: [ReceiptImageInput]
     private var onParsed: ((ReceiptDetailDTO) -> Void)?
     private var pollTask: Task<Void, Never>?
 
-    init(receiptId: String) {
+    init(receiptId: String, images: [ReceiptImageInput]) {
         self.receiptId = receiptId
+        self.images = images
     }
 
     func start(onParsed: @escaping (ReceiptDetailDTO) -> Void) {
@@ -30,7 +33,11 @@ final class ParsingViewModel: ObservableObject {
 
     func retry() async {
         state = .polling
-        let _: ReceiptSummaryDTO? = try? await client.post("/api/v1/receipts/\(receiptId)/reparse")
+        let request = ReparseRequest(images: images)
+        let _: ReceiptSummaryDTO? = try? await client.post(
+            "/api/v1/receipts/\(receiptId)/reparse",
+            body: request
+        )
         pollTask?.cancel()
         pollTask = Task { await poll() }
     }

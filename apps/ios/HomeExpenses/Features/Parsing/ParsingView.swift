@@ -6,8 +6,8 @@ struct ParsingView: View {
     @StateObject private var viewModel: ParsingViewModel
     var onParsed: (ReceiptDetailDTO) -> Void
 
-    init(receiptId: String, onParsed: @escaping (ReceiptDetailDTO) -> Void) {
-        _viewModel = StateObject(wrappedValue: ParsingViewModel(receiptId: receiptId))
+    init(receiptId: String, images: [ReceiptImageInput], onParsed: @escaping (ReceiptDetailDTO) -> Void) {
+        _viewModel = StateObject(wrappedValue: ParsingViewModel(receiptId: receiptId, images: images))
         self.onParsed = onParsed
     }
 
@@ -53,6 +53,6 @@ struct ParsingView: View {
 
 #Preview {
     NavigationStack {
-        ParsingView(receiptId: "preview", onParsed: { _ in })
+        ParsingView(receiptId: "preview", images: [], onParsed: { _ in })
     }
 }
