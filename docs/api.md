@@ -12,8 +12,9 @@ web clients talk to.
 - **Money** is always a string with two decimals, e.g. `"45.00"`. Never a JSON number.
 - **Dates** are ISO-8601. **Months** are `"YYYY-MM"`.
 - **Status.** Every route below is currently a scaffolded stub: it is wired for auth and the
-  envelope but returns `501 { error: { code: "NOT_IMPLEMENTED" } }`. `GET /health` is the one
-  real implementation. Each row will get a full request/response example as its milestone lands.
+  envelope but returns `501 { error: { code: "NOT_IMPLEMENTED" } }`. `GET /health` and
+  `POST /echo` are the real implementations. Each row will get a full request/response example as
+  its milestone lands.
 
 | Method | Path | Auth | Milestone | Purpose |
 |---|---|---|---|---|
@@ -35,6 +36,7 @@ web clients talk to.
 | `GET` | `/analytics/trends?months=12` | required | M4 | Series of monthly totals + per-category series |
 | `POST` | `/analytics/compare` | required | M5 | `{ monthA, monthB, refresh? }` → cached or fresh AI narrative |
 | `GET` | `/health` | none | M0 (live) | Liveness + DB + AI provider reachability |
+| `POST` | `/echo` | debug token | M0 (live) | Deploy smoke test — round-trips a question through the configured AI provider (not part of the product API) |
 
 ## `GET /health`
 
@@ -67,6 +69,38 @@ Response `503` (degraded — db or AI provider check failed):
   }
 }
 ```
+
+## `POST /echo`
+
+Not part of the product API — a deploy smoke test that actually calls the configured AI provider
+(`/health` only checks that a credential is *set*, not that it *works*). Gated by a shared secret,
+not user auth, since `/auth/apple` may not be wired up yet when you need this. Disabled entirely
+(`501`) when `DEBUG_API_TOKEN` isn't configured. See `docs/deployment.md` §9.
+
+Request — header `X-Debug-Token: <DEBUG_API_TOKEN>`, body:
+
+```json
+{ "question": "Reply with the single word: ok" }
+```
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "answer": "ok",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "latencyMs": 842,
+    "inputTokens": 12,
+    "outputTokens": 3
+  }
+}
+```
+
+`inputTokens`/`outputTokens` are omitted when the provider doesn't report them. `401` if the
+header is missing or wrong; `501` if `DEBUG_API_TOKEN` isn't configured; `400` if `question` is
+empty or over 2000 characters.
 
 ## Stub error shape (every other route, until its milestone)
 

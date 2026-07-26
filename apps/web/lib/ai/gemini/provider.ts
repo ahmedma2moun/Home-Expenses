@@ -10,6 +10,8 @@ import type {
 import { withRetry } from "@/lib/ai/retry";
 import { getGeminiApiKey } from "@/lib/ai/config";
 
+const MAX_OUTPUT_TOKENS = 4096;
+
 let cachedClient: GoogleGenAI | undefined;
 
 function getClient(): GoogleGenAI {
@@ -47,7 +49,7 @@ export class GeminiProvider implements ExtractionProvider, AnalysisProvider {
         getClient().models.generateContent({
           model: this.model,
           contents,
-          config: { httpOptions: { timeout: timeoutMs } },
+          config: { maxOutputTokens: MAX_OUTPUT_TOKENS, httpOptions: { timeout: timeoutMs } },
         }),
       { isRetryable },
     );

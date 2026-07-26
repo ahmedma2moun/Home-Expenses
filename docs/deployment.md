@@ -62,6 +62,7 @@ variables are injected automatically — you only need to add the rest.
 | `JWT_REFRESH_SECRET` | yes | `openssl rand -base64 32`, different value from above |
 | `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_CLIENT_ID`, `APPLE_PRIVATE_KEY` | for `/auth/apple` | Sign in with Apple |
 | `RATE_LIMIT_PARSES_PER_DAY` | yes | default `50` |
+| `DEBUG_API_TOKEN` | recommended | Enables `POST /api/v1/echo`, the deploy smoke test in §9. Leave unset to disable that endpoint entirely. |
 
 Full reference with example values: `apps/web/.env.example`.
 
@@ -174,11 +175,27 @@ once real data matters, since two open PRs would then be migrating and writing t
 
    `db.ok: false` means `DATABASE_URL`/`DIRECT_URL` are wrong or migrations didn't apply.
    `ai.ok: false` means the credential for whichever provider `EXTRACTION_PROVIDER` names isn't
-   set — see the table in §3.
-2. Confirm the categories are seeded: any endpoint that reads `Category` will 500 on a foreign-key
+   set — see the table in §3. Note that `/health` only checks the key is *present*, not that a
+   call to the provider actually succeeds — for that, use step 2.
+2. **Actually call the model** with `POST /api/v1/echo` (requires `DEBUG_API_TOKEN`, §3):
+
+   ```bash
+   curl -X POST "https://<your-app>.vercel.app/api/v1/echo" \
+     -H "X-Debug-Token: $DEBUG_API_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"question": "Reply with the single word: ok"}'
+   ```
+
+   A `200` with a real `answer` confirms the deployed backend can reach the configured provider —
+   auth, network egress, model name, and quota are all exercised end to end, not just the env var
+   presence check `/health` does. `401` means the header is missing/wrong; `501` means
+   `DEBUG_API_TOKEN` isn't set on this environment; a `500`/`error` payload from the provider
+   itself usually means a bad model name or an unfunded/rate-limited key — see `docs/api.md` for
+   the full response shape and `README.md` §10 for provider-specific error codes.
+3. Confirm the categories are seeded: any endpoint that reads `Category` will 500 on a foreign-key
    violation otherwise (once order creation is implemented — in M0 this only matters once you've
    run §7).
-3. Watch error rate and p95 latency in the Vercel dashboard for the first 30 minutes, per the
+4. Watch error rate and p95 latency in the Vercel dashboard for the first 30 minutes, per the
    `release-check` skill's post-deploy checklist.
 
 ---
@@ -207,5 +224,8 @@ State the rollback plan in the PR description for every migration, per the `db-m
 | Route 500s with a Prisma "Edge Runtime" error | That route is missing `export const runtime = 'nodejs'` |
 | Route times out on receipt upload/reparse/compare | Raise `maxDuration` for that route in `vercel.json` — check your plan's ceiling first |
 | `/api/v1/health` shows `ai.ok: false` | The env var for the configured provider (`GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) isn't set on this environment |
+| `/api/v1/echo` returns `501` | `DEBUG_API_TOKEN` isn't set on this environment |
+| `/api/v1/echo` returns `401` | `X-Debug-Token` header missing or doesn't match `DEBUG_API_TOKEN` |
+| `/api/v1/echo` returns `500` from the provider | Bad `EXTRACTION_MODEL`/`ANALYSIS_MODEL` name, or the key is unfunded/rate-limited — check the provider's own console |
 | Preview PRs stomping on each other's data | Enable Neon's per-branch Preview integration, or give Preview its own dedicated `DATABASE_URL` |
 | `NEXT_PUBLIC_*` var flagged in review | It shouldn't hold a secret — only the client bundle should ever read `NEXT_PUBLIC_*` |

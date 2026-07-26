@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
+import { ZodError } from "zod";
 import { AppError, dataEnvelope, errorEnvelope } from "@/lib/api/envelope";
 import { getUserId } from "@/lib/auth/session";
 
@@ -47,12 +48,21 @@ async function parseJsonBody(req: Request): Promise<unknown> {
 }
 
 function mapError(error: unknown, requestId: string): NextResponse {
-  const appError =
-    error instanceof AppError
-      ? error
-      : new AppError("INTERNAL_ERROR", "Something went wrong.", 500);
+  const appError = toAppError(error);
 
   console.error("api_error", { requestId, code: appError.code, httpStatus: appError.httpStatus });
 
   return NextResponse.json(errorEnvelope(appError), { status: appError.httpStatus });
+}
+
+function toAppError(error: unknown): AppError {
+  if (error instanceof AppError) {
+    return error;
+  }
+  if (error instanceof ZodError) {
+    return new AppError("VALIDATION_ERROR", "Request body failed validation.", 400, {
+      issues: error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+    });
+  }
+  return new AppError("INTERNAL_ERROR", "Something went wrong.", 500);
 }

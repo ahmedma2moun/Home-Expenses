@@ -111,6 +111,7 @@ const eslintConfig = defineConfig([
     files: ["**/*.test.ts", "**/*.test.tsx", "prisma/seed.ts", "prisma/scripts/**/*.ts"],
     rules: {
       "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/require-await": "off",
     },
   },
   {
