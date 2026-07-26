@@ -4,6 +4,7 @@ import { EchoRequestSchema } from "@/lib/api/schemas/echo";
 import { askEcho } from "@/lib/services/echo";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 /**
  * Deploy smoke test — not part of the product API. Sends a question to the configured AI

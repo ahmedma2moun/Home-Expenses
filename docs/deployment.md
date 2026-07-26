@@ -88,21 +88,30 @@ If this is truly the first deploy, the database has tables but no seeded categor
 
 ```json
 {
-  "buildCommand": "npm run vercel-build",
-  "functions": {
-    "app/api/v1/receipts/route.ts": { "maxDuration": 60 },
-    "app/api/v1/receipts/[id]/reparse/route.ts": { "maxDuration": 60 },
-    "app/api/v1/analytics/compare/route.ts": { "maxDuration": 30 }
-  }
+  "buildCommand": "npm run vercel-build"
 }
 ```
 
 - `buildCommand` is the same override you'd otherwise set in the dashboard — checked into the
   repo so it can't drift from what CI expects.
-- `functions.*.maxDuration` raises the timeout on routes that call an AI provider (receipt
-  upload/reparse, month comparison) above Vercel's default. **Confirm your plan supports the
-  value you set** — Hobby caps at 60s, Pro allows up to 300s (800s with Fluid Compute). If a route
-  starts timing out under real receipt volume, raise its entry here, not globally.
+- **Per-route duration is set in the route file itself, not in `vercel.json`.** An earlier version
+  of this file used `vercel.json`'s `functions` glob-matching key
+  (`"app/api/v1/receipts/route.ts": { "maxDuration": 60 }`), but that key's path matching doesn't
+  reliably resolve against Next.js App Router output in a monorepo — it failed with *"The
+  specified pattern ... doesn't match any Serverless Functions inside the `api` directory"* even
+  with a correct Root Directory. The routes that call an AI provider (`/receipts`,
+  `/receipts/:id/reparse`, `/analytics/compare`, `/echo`) instead export Next.js's own [route
+  segment config](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config)
+  directly:
+
+  ```ts
+  export const runtime = "nodejs";
+  export const maxDuration = 60;
+  ```
+
+  **Confirm your plan supports the value you set** — Hobby caps at 60s, Pro allows up to 300s
+  (800s with Fluid Compute). If a route starts timing out under real receipt volume, raise its
+  `maxDuration` in that file, not globally.
 - Every route handler that touches Prisma or long-running calls sets
   `export const runtime = 'nodejs'` in the file itself (not Edge) — that's enforced by the
   `verify-build` skill's common-failures list, not by `vercel.json`.
@@ -219,10 +228,12 @@ State the rollback plan in the PR description for every migration, per the `db-m
 
 | Symptom | Likely cause |
 |---|---|
-| Build fails immediately, "no package.json found" | Root Directory isn't set to `apps/web` |
+| Build fails immediately, "no package.json found" | Root Directory isn't set to `apps/web` (check for typos — `app/web` ≠ `apps/web`) |
+| Every route 404s with Vercel's own `NOT_FOUND` page (not your app's response) | Root Directory is wrong; the "build" completed in under a second with no real build steps in the logs — that's the tell |
+| "The specified pattern ... doesn't match any Serverless Functions inside the `api` directory" | Leftover `functions` key in `vercel.json` — remove it and set `export const maxDuration` in the route file instead (see §5) |
 | Build fails on `prisma migrate deploy` | Bad `DATABASE_URL`/`DIRECT_URL`, or a migration file was hand-edited after being applied elsewhere |
 | Route 500s with a Prisma "Edge Runtime" error | That route is missing `export const runtime = 'nodejs'` |
-| Route times out on receipt upload/reparse/compare | Raise `maxDuration` for that route in `vercel.json` — check your plan's ceiling first |
+| Route times out on receipt upload/reparse/compare | Raise `export const maxDuration` in that route file — check your plan's ceiling first |
 | `/api/v1/health` shows `ai.ok: false` | The env var for the configured provider (`GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) isn't set on this environment |
 | `/api/v1/echo` returns `501` | `DEBUG_API_TOKEN` isn't set on this environment |
 | `/api/v1/echo` returns `401` | `X-Debug-Token` header missing or doesn't match `DEBUG_API_TOKEN` |
