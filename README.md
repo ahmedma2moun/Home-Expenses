@@ -199,6 +199,10 @@ Before you call anything done, run the one verification pipeline (the same one C
 
 ## 7. Deploy the backend to Vercel
 
+> Full walkthrough with the complete env var table, `vercel.json` explained, migration-on-deploy
+> behavior, and rollback guidance: **[`docs/deployment.md`](docs/deployment.md)**. Quick version
+> below.
+
 ### First-time setup
 
 1. Push the repo to GitHub.
@@ -291,7 +295,7 @@ home-expenses/
 │   └── ios/            # SwiftUI app
 ├── .claude/           # agents, skills, hooks (AGENTS_AND_SKILLS.md)
 ├── scripts/           # verify.sh + guard/format hooks
-├── docs/              # api.md, versioned prompts (provider-agnostic)
+├── docs/              # api.md, deployment.md, versioned prompts (provider-agnostic)
 ├── PROJECT_SPEC.md
 ├── AGENTS_AND_SKILLS.md
 ├── AI_PROVIDER.md     # AI provider design & change record
@@ -300,6 +304,7 @@ home-expenses/
 
 ## Docs
 
+- **Vercel deployment guide — [`docs/deployment.md`](docs/deployment.md)**
 - **AI provider design & options — `AI_PROVIDER.md`**
 - Gemini API key — https://aistudio.google.com/app/apikey
 - Gemini pricing & free-tier limits — https://ai.google.dev/gemini-api/docs/pricing
