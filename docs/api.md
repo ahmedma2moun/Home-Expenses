@@ -90,7 +90,7 @@ Response `200`:
   "data": {
     "answer": "ok",
     "provider": "gemini",
-    "model": "gemini-2.5-flash",
+    "model": "gemini-3.5-flash",
     "latencyMs": 842,
     "inputTokens": 12,
     "outputTokens": 3

@@ -76,7 +76,7 @@ no credit card on most models). Full trade-offs and the Claude paid option are i
 ### Verify the Gemini key works
 
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"contents":[{"parts":[{"text":"Reply with the single word: ok"}]}]}'
@@ -159,8 +159,8 @@ SHADOW_DATABASE_URL="postgres://.../db_shadow?sslmode=require"  # prisma migrate
 # AI provider — server only, NEVER in the iOS app. See AI_PROVIDER.md.
 EXTRACTION_PROVIDER="gemini"                 # gemini | anthropic
 ANALYSIS_PROVIDER="gemini"
-EXTRACTION_MODEL="gemini-2.5-flash"          # vision model for receipts
-ANALYSIS_MODEL="gemini-2.5-flash"            # text model for month-vs-month
+EXTRACTION_MODEL="gemini-3.5-flash"          # vision model for receipts
+ANALYSIS_MODEL="gemini-3.5-flash"            # text model for month-vs-month
 GEMINI_API_KEY="AIza..."                     # if any provider is 'gemini'
 # ANTHROPIC_API_KEY="sk-ant-..."             # if any provider is 'anthropic'
 
@@ -281,7 +281,7 @@ provider reachability.
 | Gemini call `400`/`403` | Key missing, mistyped, or **unrestricted** — restrict it to the Gemini API in AI Studio. |
 | Gemini `429` | Above the free-tier rate limit. Retry with backoff, cache, or enable billing for higher limits. |
 | EEA/UK/CH: free calls rejected | Google requires billing enabled in those regions even for free models. |
-| Bad model ID | Confirm `EXTRACTION_MODEL` matches the provider (e.g. `gemini-2.5-flash`, `claude-sonnet-5`). See `AI_PROVIDER.md` §5. |
+| Bad model ID | Confirm `EXTRACTION_MODEL` matches the provider (e.g. `gemini-3.5-flash`, `claude-sonnet-5`). See `AI_PROVIDER.md` §5. |
 | Claude provider 401 / billing | Using `anthropic`? Key or billing issue — set up at platform.claude.com. |
 | Prisma errors after editing the schema | Run `npx prisma generate`. |
 | Route fails on Vercel with a Prisma/edge error | The route needs Node — ensure `export const runtime = 'nodejs'`. |

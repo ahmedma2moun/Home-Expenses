@@ -56,8 +56,8 @@ variables are injected automatically — you only need to add the rest.
 | `SHADOW_DATABASE_URL` | CI only | Not needed for the Vercel build itself — only for the `migrate diff` drift check in CI (see §6 caveat) |
 | `EXTRACTION_PROVIDER` | yes | `gemini` (default) or `anthropic` |
 | `ANALYSIS_PROVIDER` | yes | `gemini` (default) or `anthropic` |
-| `EXTRACTION_MODEL` | yes | e.g. `gemini-2.5-flash` |
-| `ANALYSIS_MODEL` | yes | e.g. `gemini-2.5-flash` |
+| `EXTRACTION_MODEL` | yes | e.g. `gemini-3.5-flash` |
+| `ANALYSIS_MODEL` | yes | e.g. `gemini-3.5-flash` |
 | `GEMINI_API_KEY` | if using gemini | from aistudio.google.com |
 | `ANTHROPIC_API_KEY` | if using anthropic | from platform.claude.com |
 | `BLOB_READ_WRITE_TOKEN` | yes | Vercel Blob storage |

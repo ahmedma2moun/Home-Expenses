@@ -24,11 +24,11 @@ export function getAnalysisProviderName(): ProviderName {
 }
 
 export function getExtractionModel(): string {
-  return process.env.EXTRACTION_MODEL ?? "gemini-2.5-flash";
+  return process.env.EXTRACTION_MODEL ?? "gemini-3.5-flash";
 }
 
 export function getAnalysisModel(): string {
-  return process.env.ANALYSIS_MODEL ?? "gemini-2.5-flash";
+  return process.env.ANALYSIS_MODEL ?? "gemini-3.5-flash";
 }
 
 export function getGeminiApiKey(): string {

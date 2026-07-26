@@ -15,7 +15,7 @@ describe("askEcho", () => {
   it("round-trips the question through the configured provider and maps the result", async () => {
     compare.mockResolvedValue({
       text: "4",
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       latencyMs: 123,
       inputTokens: 5,
       outputTokens: 1,
@@ -27,7 +27,7 @@ describe("askEcho", () => {
     expect(result).toEqual({
       answer: "4",
       provider: "gemini",
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       latencyMs: 123,
       inputTokens: 5,
       outputTokens: 1,

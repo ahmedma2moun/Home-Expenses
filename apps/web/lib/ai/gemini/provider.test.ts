@@ -46,7 +46,7 @@ describe("GeminiProvider", () => {
     process.env.GEMINI_API_KEY = "AIza-test";
     generateContent.mockResolvedValue(fakeResponse("parsed json"));
     const { GeminiProvider } = await import("./provider");
-    const provider = new GeminiProvider("gemini-2.5-flash");
+    const provider = new GeminiProvider("gemini-3.5-flash");
 
     const result = await provider.extract({
       images: [
@@ -58,7 +58,7 @@ describe("GeminiProvider", () => {
 
     expect(typeof result.latencyMs).toBe("number");
     expect(result).toMatchObject({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       inputTokens: 20,
       outputTokens: 8,
       text: "parsed json",
@@ -76,7 +76,7 @@ describe("GeminiProvider", () => {
     process.env.GEMINI_API_KEY = "AIza-test";
     generateContent.mockResolvedValue(fakeResponse("narrative"));
     const { GeminiProvider } = await import("./provider");
-    const provider = new GeminiProvider("gemini-2.5-flash");
+    const provider = new GeminiProvider("gemini-3.5-flash");
 
     const result = await provider.compare({
       diffJson: '{"total":"1.00"}',
@@ -93,7 +93,7 @@ describe("GeminiProvider", () => {
     process.env.GEMINI_API_KEY = "AIza-test";
     generateContent.mockResolvedValue({ text: undefined, usageMetadata: undefined });
     const { GeminiProvider } = await import("./provider");
-    const provider = new GeminiProvider("gemini-2.5-flash");
+    const provider = new GeminiProvider("gemini-3.5-flash");
 
     const result = await provider.compare({ diffJson: "{}", systemPrompt: "x" });
 

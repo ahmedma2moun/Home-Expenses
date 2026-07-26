@@ -39,19 +39,19 @@ describe("provider selection", () => {
 });
 
 describe("model selection", () => {
-  it("defaults both models to gemini-2.5-flash", () => {
+  it("defaults both models to gemini-3.5-flash", () => {
     delete process.env.EXTRACTION_MODEL;
     delete process.env.ANALYSIS_MODEL;
 
-    expect(getExtractionModel()).toBe("gemini-2.5-flash");
-    expect(getAnalysisModel()).toBe("gemini-2.5-flash");
+    expect(getExtractionModel()).toBe("gemini-3.5-flash");
+    expect(getAnalysisModel()).toBe("gemini-3.5-flash");
   });
 
   it("uses the env override when set", () => {
-    process.env.EXTRACTION_MODEL = "qwen2.5vl";
+    process.env.EXTRACTION_MODEL = "gemini-3.5-flash-lite";
     process.env.ANALYSIS_MODEL = "claude-haiku-4-5";
 
-    expect(getExtractionModel()).toBe("qwen2.5vl");
+    expect(getExtractionModel()).toBe("gemini-3.5-flash-lite");
     expect(getAnalysisModel()).toBe("claude-haiku-4-5");
   });
 });

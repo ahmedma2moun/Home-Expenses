@@ -29,7 +29,7 @@ Requirements that drove the decision:
 
 | Concern | Choice |
 |---|---|
-| Default provider (build / prototype) | **Google Gemini `gemini-2.5-flash`** — free tier, native vision, structured JSON output |
+| Default provider (build / prototype) | **Google Gemini `gemini-3.5-flash`** — free tier, native vision, structured JSON output |
 | Private / production-grade privacy | **Self-hosted Ollama** vision model (`qwen2.5vl` or `llama3.2-vision`) — zero cost, nothing leaves the machine |
 | Highest extraction quality (paid) | **Anthropic Claude** (`claude-sonnet-5`) or **Gemini paid tier** |
 | Comparison call (text-only) | Any of the above; can be routed to a separate free text tier (Groq / Cerebras) to spread quota |
@@ -119,8 +119,8 @@ EXTRACTION_PROVIDER="gemini"
 ANALYSIS_PROVIDER="gemini"
 
 # Model per call (values depend on the chosen provider)
-EXTRACTION_MODEL="gemini-2.5-flash"
-ANALYSIS_MODEL="gemini-2.5-flash"
+EXTRACTION_MODEL="gemini-3.5-flash"
+ANALYSIS_MODEL="gemini-3.5-flash"
 
 # Credentials — only set the ones your chosen providers need
 GEMINI_API_KEY="AIza..."                 # if any provider is 'gemini'
@@ -135,7 +135,7 @@ Model values by provider:
 
 | Provider | `EXTRACTION_MODEL` (vision) | `ANALYSIS_MODEL` (text) |
 |---|---|---|
-| gemini | `gemini-2.5-flash` | `gemini-2.5-flash` (or `gemini-2.5-flash-lite`) |
+| gemini | `gemini-3.5-flash` | `gemini-3.5-flash` (or `gemini-3.5-flash-lite`) |
 | ollama | `qwen2.5vl` / `llama3.2-vision` | `llama3.1` (any local text model) |
 | anthropic | `claude-sonnet-5` | `claude-sonnet-5` (or `claude-haiku-4-5`) |
 
@@ -151,7 +151,7 @@ Free tier, **no credit card** on most models.
 4. **Restrict the key.** As of mid-2026 Google blocks unrestricted keys — on the API keys page, if the
    key shows an "unrestricted" tag, click **Restrict to Gemini API** (or set it under Google Cloud
    Console → APIs & Services → Credentials).
-5. Put it in `GEMINI_API_KEY`. Free-tier limits on `gemini-2.5-flash` are modest (roughly 10 requests
+5. Put it in `GEMINI_API_KEY`. Free-tier limits on `gemini-3.5-flash` are modest (roughly 10 requests
    per minute and a few hundred per day, and Google changes these) — fine for a household tracker.
 
 > **EEA / UK / Switzerland:** Google requires billing enabled even for free-eligible models. Enabling
@@ -161,7 +161,7 @@ Free tier, **no credit card** on most models.
 ### Verify the Gemini key
 
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"contents":[{"parts":[{"text":"Reply with the single word: ok"}]}]}'
@@ -199,7 +199,7 @@ host); for local-first development it just works.
 
 ## 9. Recommendation
 
-Build and prototype on **Gemini `gemini-2.5-flash`** (free, native vision, structured output). Keep an
+Build and prototype on **Gemini `gemini-3.5-flash`** (free, native vision, structured output). Keep an
 **Ollama** provider behind the same interface for private data and offline work. If extraction accuracy
 or PII handling later demands it, flip `EXTRACTION_PROVIDER` to `anthropic` or Gemini paid — no code
 change, no schema change, and the eval suite tells you whether the swap helped.
