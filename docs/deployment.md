@@ -29,7 +29,10 @@ Before you start, have these provisioned (README.md §1, §3, §4 walk through e
 1. **Add New → Project** in the Vercel dashboard and import the GitHub repo.
 2. **Root Directory:** set it to `apps/web`. This is the single most important setting — Vercel
    defaults to the repo root, which has no `package.json` and won't build.
-3. **Framework Preset:** auto-detects as Next.js. Leave the default Output Directory.
+3. **Framework Preset:** should auto-detect as Next.js once Root Directory is `apps/web`. Confirm
+   it actually says **Next.js**, not "Other" — `apps/web/vercel.json` also pins this explicitly
+   (`"framework": "nextjs"`) so a wrong dashboard setting can't silently override it, but check
+   anyway. Leave the default Output Directory (don't set it to `public` or anything else).
 4. **Build Command:** override to `npm run vercel-build` (or leave the framework default and rely
    on `apps/web/vercel.json`, which already sets `"buildCommand": "npm run vercel-build"` — see §5).
 5. **Node.js Version:** 20.x or newer (matches `README.md` prerequisites).
@@ -254,6 +257,7 @@ State the rollback plan in the PR description for every migration, per the `db-m
 |---|---|
 | Build fails immediately, "no package.json found" | Root Directory isn't set to `apps/web` (check for typos — `app/web` ≠ `apps/web`) |
 | Every route 404s with Vercel's own `NOT_FOUND` page (not your app's response) | Root Directory is wrong; the "build" completed in under a second with no real build steps in the logs — that's the tell |
+| `No Output Directory named "public" found` | Framework Preset in the dashboard is set to "Other" instead of "Next.js" — `vercel.json`'s `"framework": "nextjs"` should prevent this, but check Settings → General → Build & Development Settings if it recurs |
 | "The specified pattern ... doesn't match any Serverless Functions inside the `api` directory" | Leftover `functions` key in `vercel.json` — remove it and set `export const maxDuration` in the route file instead (see §5) |
 | Build fails on `prisma migrate deploy` | Bad `DATABASE_URL`/`DIRECT_URL`, or a migration file was hand-edited after being applied elsewhere |
 | `prisma migrate deploy` hangs indefinitely (no error, just stuck) | On Supabase: `DIRECT_URL` is pointed at the IPv6-only Direct connection. Use the Session pooler string instead — see §6 |
