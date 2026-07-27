@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isPeriodMonth, suggestPeriodMonth, toPeriodMonth } from "./period";
+import {
+  formatMonthLabel,
+  isPeriodMonth,
+  parseMonthLabel,
+  suggestPeriodMonth,
+  toPeriodMonth,
+} from "./period";
 
 describe("toPeriodMonth", () => {
   const cases: { name: string; input: Date; expected: string }[] = [
@@ -45,6 +51,21 @@ describe("suggestPeriodMonth", () => {
 
   it("falls back to the current month when no receipt date was extracted", () => {
     expect(suggestPeriodMonth(null, now).toISOString()).toBe("2026-07-01T00:00:00.000Z");
+  });
+});
+
+describe("parseMonthLabel", () => {
+  it("parses a month label to the first of that month at UTC midnight", () => {
+    expect(parseMonthLabel("2026-07").toISOString()).toBe("2026-07-01T00:00:00.000Z");
+  });
+
+  // BR-4: the accounting month is the user's choice — future months are as valid as past ones.
+  it("parses a future month label", () => {
+    expect(parseMonthLabel("2027-03").toISOString()).toBe("2027-03-01T00:00:00.000Z");
+  });
+
+  it("round-trips through formatMonthLabel", () => {
+    expect(formatMonthLabel(parseMonthLabel("2026-12"))).toBe("2026-12");
   });
 });
 
