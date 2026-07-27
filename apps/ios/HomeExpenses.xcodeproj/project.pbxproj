@@ -30,6 +30,11 @@
 		EF5B7B36F1D996E92F626E48 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543E6F74CA770CF4F4EE3E59 /* AppConfig.swift */; };
 		F911AFD3E763A92DC1748DE3 /* ReceiptFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */; };
 		FF6A616B36C3340D333E6EBC /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9A4FDA25034DEEE5EFBDF5 /* SummaryView.swift */; };
+		B1000000000000000000A0D1 /* OrderDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D1 /* OrderDTOs.swift */; };
+		B1000000000000000000A0D2 /* OrdersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D2 /* OrdersView.swift */; };
+		B1000000000000000000A0D3 /* OrdersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D3 /* OrdersViewModel.swift */; };
+		B1000000000000000000A0D4 /* OrderEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D4 /* OrderEditView.swift */; };
+		B1000000000000000000A0D5 /* OrderEditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D5 /* OrderEditViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +63,11 @@
 		E3D0DA9630B92123B7A6CC84 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		EBDB14208335B59CB9287406 /* HealthDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDTO.swift; sourceTree = "<group>"; };
 		F34D23F49B84082A679D6984 /* HomeExpensesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeExpensesApp.swift; sourceTree = "<group>"; };
+		A1000000000000000000A0D1 /* OrderDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderDTOs.swift; sourceTree = "<group>"; };
+		A1000000000000000000A0D2 /* OrdersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersView.swift; sourceTree = "<group>"; };
+		A1000000000000000000A0D3 /* OrdersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersViewModel.swift; sourceTree = "<group>"; };
+		A1000000000000000000A0D4 /* OrderEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditView.swift; sourceTree = "<group>"; };
+		A1000000000000000000A0D5 /* OrderEditViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditViewModel.swift; sourceTree = "<group>"; };
 		FE0AF011BDDE08B265B426E8 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -182,9 +192,21 @@
 				4F3EE93909555DA3BEE5F756 /* CategoryDTO.swift */,
 				30BBDCA99DCE3FBF7BADA690 /* ConfirmDTOs.swift */,
 				EBDB14208335B59CB9287406 /* HealthDTO.swift */,
+				A1000000000000000000A0D1 /* OrderDTOs.swift */,
 				0D60391D2F08DD3D4F0E9714 /* ReceiptDTOs.swift */,
 			);
 			path = DTOs;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000A0E1 /* Orders */ = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000A0D4 /* OrderEditView.swift */,
+				A1000000000000000000A0D5 /* OrderEditViewModel.swift */,
+				A1000000000000000000A0D2 /* OrdersView.swift */,
+				A1000000000000000000A0D3 /* OrdersViewModel.swift */,
+			);
+			path = Orders;
 			sourceTree = "<group>";
 		};
 		EEE7D22CB62B77F22943723B /* Summary */ = {
@@ -200,6 +222,7 @@
 			isa = PBXGroup;
 			children = (
 				3D2B6DC45D4D9C748B404130 /* Capture */,
+				A1000000000000000000A0E1 /* Orders */,
 				8EA47DF20F82858B8A5C2B2E /* Parsing */,
 				74B8644348B33C752C4FD4B3 /* Review */,
 				EEE7D22CB62B77F22943723B /* Summary */,
@@ -274,6 +297,11 @@
 				94ED77F8EC67B57B767E8DD0 /* ImagePreprocessor.swift in Sources */,
 				C5A02E4009CB7335655AA410 /* Money+FormatStyle.swift in Sources */,
 				226EA839812CEA9FF95C9B15 /* MonthLabel.swift in Sources */,
+				B1000000000000000000A0D1 /* OrderDTOs.swift in Sources */,
+				B1000000000000000000A0D4 /* OrderEditView.swift in Sources */,
+				B1000000000000000000A0D5 /* OrderEditViewModel.swift in Sources */,
+				B1000000000000000000A0D2 /* OrdersView.swift in Sources */,
+				B1000000000000000000A0D3 /* OrdersViewModel.swift in Sources */,
 				D1E0AC6B8035DA874DA34C6B /* ParsingView.swift in Sources */,
 				E31F4191978AF2478C50C160 /* ParsingViewModel.swift in Sources */,
 				74E4710CEF548D36F56A9965 /* ReceiptDTOs.swift in Sources */,

@@ -117,8 +117,8 @@ final class ReviewViewModel: ObservableObject {
                 name: item.name,
                 quantity: item.quantity,
                 unit: item.unit,
-                unitPrice: item.unitPrice.map(Self.moneyString),
-                lineTotal: Self.moneyString(item.lineTotal),
+                unitPrice: item.unitPrice?.wireString,
+                lineTotal: item.lineTotal.wireString,
                 categoryId: item.categoryId,
                 aiCategoryId: item.aiCategoryId,
                 position: index
@@ -130,10 +130,10 @@ final class ReviewViewModel: ObservableObject {
             purchasedAt: purchasedAt.map { ISO8601DateFormatter().string(from: $0) },
             periodMonth: MonthLabel.format(periodMonth),
             currency: currency,
-            subtotal: Self.moneyString(subtotal),
-            tax: Self.moneyString(tax),
-            discount: Self.moneyString(discount),
-            total: Self.moneyString(grandTotal),
+            subtotal: subtotal.wireString,
+            tax: tax.wireString,
+            discount: discount.wireString,
+            total: grandTotal.wireString,
             notes: notes.isEmpty ? nil : notes,
             items: requestItems
         )
@@ -145,15 +145,5 @@ final class ReviewViewModel: ObservableObject {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't save this order."
         }
-    }
-
-    private static func moneyString(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        formatter.usesGroupingSeparator = false
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.string(from: value as NSDecimalNumber) ?? "0.00"
     }
 }

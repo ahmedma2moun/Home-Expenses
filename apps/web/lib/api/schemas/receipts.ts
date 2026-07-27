@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { clientRefSchema, moneySchema, monthLabelSchema } from "@/lib/api/schemas/common";
+import { OrderItemInputSchema } from "@/lib/api/schemas/orders";
 
 // No blob storage: images travel as base64 in the request body and are used once, in memory, for
 // the extraction call — never persisted (PROJECT_SPEC.md §2's direct-to-blob path is superseded).
@@ -26,21 +27,8 @@ export const ReparseRequestSchema = z.object({
 });
 export type ReparseRequest = z.infer<typeof ReparseRequestSchema>;
 
-// BR-3: the backend trusts the client's final, user-edited payload — not the AI parse. `aiCategoryId`
-// is the AI's original suggestion for this item (if any), echoed back by the client for the
-// learning-loop dataset (ItemCategoryOverride); omit it for items the user added by hand.
-export const ConfirmOrderItemSchema = z.object({
-  name: z.string().min(1).max(200),
-  quantity: z.coerce.number().positive().default(1),
-  unit: z.string().min(1).max(20).nullable().optional(),
-  unitPrice: moneySchema.nullable().optional(),
-  lineTotal: moneySchema,
-  categoryId: z.string().min(1),
-  aiCategoryId: z.string().min(1).nullable().optional(),
-  position: z.number().int().min(0),
-});
-export type ConfirmOrderItem = z.infer<typeof ConfirmOrderItemSchema>;
-
+// BR-3: the backend trusts the client's final, user-edited payload — not the AI parse. The line
+// shape itself lives in schemas/orders.ts, shared with the order edit request.
 export const ConfirmReceiptRequestSchema = z.object({
   // Blank is accepted: plenty of receipts have no legible merchant (cropped photo, logo-only
   // header), and losing a whole confirmed order to a 400 is worse than storing a placeholder.
@@ -54,6 +42,6 @@ export const ConfirmReceiptRequestSchema = z.object({
   discount: moneySchema.default("0.00"),
   total: moneySchema,
   notes: z.string().max(2000).nullable().optional(),
-  items: z.array(ConfirmOrderItemSchema).min(1).max(200),
+  items: z.array(OrderItemInputSchema).min(1).max(200),
 });
 export type ConfirmReceiptRequest = z.infer<typeof ConfirmReceiptRequestSchema>;

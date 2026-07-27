@@ -26,11 +26,11 @@ web clients talk to.
 | `POST` | `/receipts/:id/reparse` | required | M1 | Retry a `FAILED` parse (counts against quota) |
 | `POST` | `/receipts/:id/confirm` | required | M2 | Body = final user-edited order + items + `periodMonth` → creates `Order`. `merchant` is required but may be an empty string — it is trimmed, and a blank one is stored as `"Unknown merchant"`. `periodMonth` may be any month, past or future (BR-4) |
 | `DELETE` | `/receipts/:id` | required | M1 | Discard an unconfirmed receipt (soft delete + blob cleanup job) |
-| `GET` | `/orders?month=YYYY-MM&cursor=` | required | M3 | Paginated orders for a month |
+| `GET` | `/orders?month=YYYY-MM&cursor=&limit=` | required | M3 (live) | Paginated orders for a month; `month` omitted lists every month |
 | `POST` | `/orders` | required | M3 | Manual order entry (no receipt) |
-| `GET` | `/orders/:id` | required | M3 | Order + items |
-| `PATCH` | `/orders/:id` | required | M3 | Edit merchant/notes/**periodMonth**/items |
-| `DELETE` | `/orders/:id` | required | M3 | Delete order (cascades items, recomputes summaries) |
+| `GET` | `/orders/:id` | required | M3 (live) | Order + items |
+| `PATCH` | `/orders/:id` | required | M3 (live) | Edit merchant/notes/**periodMonth**/items |
+| `DELETE` | `/orders/:id` | required | M3 (live) | Delete order (cascades items, recomputes summaries) |
 | `GET` | `/categories` | required | M0/M3 | Taxonomy (cacheable, ETag) |
 | `GET` | `/analytics/month/:month` | required | M4 | Totals, per-category breakdown, top merchants/items |
 | `GET` | `/analytics/trends?months=12` | required | M4 | Series of monthly totals + per-category series |
@@ -101,6 +101,138 @@ Response `200`:
 `inputTokens`/`outputTokens` are omitted when the provider doesn't report them. `401` if the
 header is missing or wrong; `501` if `DEBUG_API_TOKEN` isn't configured; `400` if `question` is
 empty or over 2000 characters.
+
+## `GET /orders`
+
+The month list behind the app's Orders screen. Query parameters: `month` (`YYYY-MM`, omitted =
+every month), `cursor` (the `nextCursor` of the previous page), `limit` (1–100, default 50).
+
+Orders come back newest purchase first; orders with no readable receipt date sort last. Rows carry
+an item count rather than the items themselves — fetch `GET /orders/:id` for those.
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "orders": [
+      {
+        "id": "clx1order",
+        "merchant": "Carrefour",
+        "purchasedAt": "2026-07-14T18:32:00.000Z",
+        "periodMonth": "2026-07",
+        "currency": "EGP",
+        "total": "650.00",
+        "itemCount": 12,
+        "source": "receipt",
+        "createdAt": "2026-07-14T19:02:11.412Z"
+      }
+    ],
+    "nextCursor": "clx1order"
+  }
+}
+```
+
+`nextCursor` is `null` on the last page.
+
+## `GET /orders/:id`
+
+Response `200` — the order with its line items, in `position` order:
+
+```json
+{
+  "data": {
+    "id": "clx1order",
+    "receiptId": "clx1receipt",
+    "merchant": "Carrefour",
+    "purchasedAt": "2026-07-14T18:32:00.000Z",
+    "periodMonth": "2026-07",
+    "currency": "EGP",
+    "subtotal": "612.00",
+    "tax": "38.00",
+    "discount": "0.00",
+    "total": "650.00",
+    "notes": null,
+    "source": "receipt",
+    "itemCount": 1,
+    "createdAt": "2026-07-14T19:02:11.412Z",
+    "updatedAt": "2026-07-14T19:02:11.412Z",
+    "items": [
+      {
+        "id": "clx1item",
+        "name": "Tomatoes 1kg",
+        "quantity": 2,
+        "unit": "kg",
+        "unitPrice": "22.50",
+        "lineTotal": "45.00",
+        "categoryId": "produce",
+        "aiCategoryId": "produce",
+        "position": 0
+      }
+    ]
+  }
+}
+```
+
+`quantity` is a JSON **number** — it is a count or weight, not an amount. Every money field beside
+it is a string.
+
+`404` when the id doesn't exist *or* belongs to another user.
+
+## `PATCH /orders/:id`
+
+Edits a saved order (BR-4). Every field is optional; an omitted field is left untouched, so
+`"notes": null` clears the notes while omitting `notes` keeps them. A body with no fields at all is
+a `400`.
+
+`items` replaces the **whole** line-item list — the client owns the list, and the ids of rows the
+user just added don't exist server-side yet. Because that changes what the order is worth,
+`subtotal` and `total` are required whenever `items` is present. An unknown `categoryId` comes back
+as a field-level `400` (`details.issues[].path` = `items.<n>.categoryId`), not a 500.
+
+Moving an order to another month recomputes the summaries for **both** months and drops any cached
+`MonthComparison` referencing either one.
+
+Request:
+
+```json
+{
+  "merchant": "Carrefour City",
+  "periodMonth": "2026-08",
+  "subtotal": "45.00",
+  "tax": "0.00",
+  "discount": "0.00",
+  "total": "45.00",
+  "items": [
+    {
+      "name": "Tomatoes 1kg",
+      "quantity": 2,
+      "unit": "kg",
+      "unitPrice": "22.50",
+      "lineTotal": "45.00",
+      "categoryId": "produce",
+      "aiCategoryId": "produce",
+      "position": 0
+    }
+  ]
+}
+```
+
+Response `200`: the updated order, in the same shape as `GET /orders/:id`.
+
+## `DELETE /orders/:id`
+
+Deletes the order, cascades its items, and recomputes that month's summary. If the order came from
+a receipt, the receipt is released from `CONFIRMED` back to `PARSED` — `Order.receiptId` is unique,
+so a receipt left at `CONFIRMED` with its order gone could never produce one again.
+
+Response `200`:
+
+```json
+{ "data": { "id": "clx1order" } }
+```
+
+`404` when the id doesn't exist or belongs to another user.
 
 ## Stub error shape (every other route, until its milestone)
 

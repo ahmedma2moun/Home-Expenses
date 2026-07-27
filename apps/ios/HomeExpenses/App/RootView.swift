@@ -1,10 +1,19 @@
 import SwiftUI
 
-/// Trimmed to the core flow: capture a receipt, let AI categorize it, confirm & save, and see the
-/// month's category summary. Orders list/edit, trends, AI comparison, and auth are out of scope.
+/// Capture a receipt, let AI categorize it, confirm & save, then see the month's summary and
+/// manage the orders behind it. Trends, AI comparison, and auth are still out of scope.
 struct RootView: View {
     var body: some View {
-        SummaryView()
+        TabView {
+            SummaryView()
+                .tabItem {
+                    Label("Home", systemImage: "house")
+                }
+            OrdersView()
+                .tabItem {
+                    Label("Orders", systemImage: "list.bullet.rectangle")
+                }
+        }
     }
 }
 

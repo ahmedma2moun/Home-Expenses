@@ -14,8 +14,11 @@ actor APIClient {
         self.session = session
     }
 
-    func get<Response: Decodable>(_ path: String) async throws -> Response {
-        try await send(path: path, method: "GET", body: Optional<Data>.none)
+    func get<Response: Decodable>(
+        _ path: String,
+        query: [URLQueryItem] = []
+    ) async throws -> Response {
+        try await send(path: path, method: "GET", query: query, body: Optional<Data>.none)
     }
 
     func post<Body: Encodable, Response: Decodable>(_ path: String, body: Body) async throws -> Response {
@@ -27,12 +30,23 @@ actor APIClient {
         try await send(path: path, method: "POST", body: Optional<Data>.none)
     }
 
+    func patch<Body: Encodable, Response: Decodable>(_ path: String, body: Body) async throws -> Response {
+        let data = try JSONEncoder.api.encode(body)
+        return try await send(path: path, method: "PATCH", body: data)
+    }
+
+    func delete<Response: Decodable>(_ path: String) async throws -> Response {
+        try await send(path: path, method: "DELETE", body: Optional<Data>.none)
+    }
+
     private func send<Response: Decodable>(
         path: String,
         method: String,
+        query: [URLQueryItem] = [],
         body: Data?
     ) async throws -> Response {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        let url = try requestURL(path: path, query: query)
+        var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
@@ -58,6 +72,20 @@ actor APIClient {
         } catch {
             throw APIError.decoding(error)
         }
+    }
+
+    /// `appendingPathComponent` percent-encodes `?`, so a query string can't be baked into the
+    /// path — it has to go through `URLComponents`.
+    private func requestURL(path: String, query: [URLQueryItem]) throws -> URL {
+        let target = baseURL.appendingPathComponent(path)
+        guard var components = URLComponents(url: target, resolvingAgainstBaseURL: false) else {
+            throw APIError.transport(URLError(.badURL))
+        }
+        components.queryItems = query.isEmpty ? nil : query
+        guard let url = components.url else {
+            throw APIError.transport(URLError(.badURL))
+        }
+        return url
     }
 }
 
