@@ -40,6 +40,23 @@ final class AnalyticsViewModel: ObservableObject {
         AnalyticsComparisonData.comparisonRows(current: trendCurrentSummary, previous: trendPreviousSummary)
     }
 
+    /// The grand-total counterpart to `comparisonRows` — same shape, so it can reuse the same row
+    /// rendering, badge, and accessibility logic. `nil` until both months of the pair have loaded,
+    /// or if both totals are zero (the "nothing to compare yet" empty state already covers that).
+    var totalComparisonRow: CategoryComparisonRow? {
+        guard let current = trendCurrentSummary, let previous = trendPreviousSummary else { return nil }
+        let previousAmount = previous.totalAmount.value
+        let currentAmount = current.totalAmount.value
+        guard previousAmount != 0 || currentAmount != 0 else { return nil }
+        return CategoryComparisonRow(
+            id: "__total__",
+            name: "Total spend",
+            emoji: "💰",
+            previousAmount: previousAmount,
+            currentAmount: currentAmount
+        )
+    }
+
     /// Derived from the loaded summaries' own `month` field when available, falling back to the
     /// target month only before the first load — this way the label can never show a different
     /// pair than the amounts underneath it while a fetch is in flight or has failed; it just keeps

@@ -78,6 +78,11 @@ struct AnalyticsView: View {
                     )
                 }
             } else {
+                if let totalRow = viewModel.totalComparisonRow {
+                    Section {
+                        totalRowLabel(totalRow)
+                    }
+                }
                 Section("Spending trend") {
                     ForEach(viewModel.comparisonRows) { row in
                         DisclosureGroup(isExpanded: expansionBinding(for: row.id)) {
@@ -117,6 +122,29 @@ struct AnalyticsView: View {
         }
         // `children: .combine` would read the "→" glyph literally and drop the up/down meaning,
         // which lives only in the badge's colour and SF Symbol — so this is described explicitly.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.name)
+        .accessibilityValue(accessibilityValue(for: row))
+    }
+
+    /// The grand-total row above the per-category list — same amounts-and-badge shape as
+    /// `comparisonRowLabel`, just set in a heavier weight so it reads as a summary, not one more
+    /// category among the rest.
+    private func totalRowLabel(_ row: CategoryComparisonRow) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.name).font(.headline)
+                HStack(spacing: 4) {
+                    Text("\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: "EGP"))")
+                    Text("→")
+                    Text("\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: "EGP"))")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+            changeBadge(for: row)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.name)
         .accessibilityValue(accessibilityValue(for: row))
