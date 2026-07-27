@@ -6,10 +6,17 @@ import { UNKNOWN_MERCHANT } from "@/lib/services/orders";
 import {
   toOrderDto,
   toOrderSummary,
+  toCategoryOrderGroup,
   type OrderDto,
   type OrderListPage,
+  type CategoryItemsPage,
 } from "@/lib/services/orderDtos";
-import type { OrderItemInput, OrderListQuery, OrderUpdateRequest } from "@/lib/api/schemas/orders";
+import type {
+  OrderItemInput,
+  OrderItemsByCategoryQuery,
+  OrderListQuery,
+  OrderUpdateRequest,
+} from "@/lib/api/schemas/orders";
 
 /**
  * Reading and maintaining orders that already exist (BR-4: list a month, move an order to another
@@ -70,6 +77,41 @@ async function keysetAfter(userId: string, cursor: string): Promise<Prisma.Order
     { purchasedAt: null },
     { purchasedAt: anchor.purchasedAt, id: { lt: anchor.id } },
   ];
+}
+
+/**
+ * The Home screen's "expand a category" drill-down: every item in one month that falls under one
+ * category, grouped by the order it was bought in (newest purchase first, same ordering as
+ * `listOrders`). This is a targeted `OrderItem` read, not an analytics one — PROJECT_SPEC.md §12
+ * only bars `OrderItem` scans from the aggregate endpoints, which have `MonthlySummary` to read
+ * instead. There is no materialized per-item view for this, so this queries the source rows.
+ */
+export async function listOrderItemsByCategory(
+  userId: string,
+  query: OrderItemsByCategoryQuery,
+): Promise<CategoryItemsPage> {
+  const periodMonth = parseMonthLabel(query.month);
+
+  const orders = await prisma.order.findMany({
+    where: {
+      userId,
+      periodMonth,
+      items: { some: { categoryId: query.categoryId } },
+    },
+    orderBy: [{ purchasedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+    include: {
+      items: {
+        where: { categoryId: query.categoryId },
+        orderBy: { position: "asc" },
+      },
+    },
+  });
+
+  return {
+    month: query.month,
+    categoryId: query.categoryId,
+    orders: orders.map(toCategoryOrderGroup),
+  };
 }
 
 export async function getOrder(userId: string, orderId: string): Promise<OrderDto> {

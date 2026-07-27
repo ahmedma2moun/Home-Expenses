@@ -47,6 +47,21 @@ export interface OrderListPage {
   nextCursor: string | null;
 }
 
+/** One order's items within a single category — the Home screen's "expand a category" drill-down. */
+export interface CategoryOrderGroupDto {
+  orderId: string;
+  merchant: string;
+  purchasedAt: string | null;
+  currency: string;
+  items: OrderItemDto[];
+}
+
+export interface CategoryItemsPage {
+  month: string;
+  categoryId: string;
+  orders: CategoryOrderGroupDto[];
+}
+
 export type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
 export type OrderWithItemCount = Prisma.OrderGetPayload<{
   include: { _count: { select: { items: true } } };
@@ -87,7 +102,18 @@ export function toOrderDto(order: OrderWithItems): OrderDto {
   };
 }
 
-function toOrderItemDto(item: OrderWithItems["items"][number]): OrderItemDto {
+/** `order.items` is expected pre-filtered to one category — the caller's `where` scopes it. */
+export function toCategoryOrderGroup(order: OrderWithItems): CategoryOrderGroupDto {
+  return {
+    orderId: order.id,
+    merchant: order.merchant,
+    purchasedAt: order.purchasedAt?.toISOString() ?? null,
+    currency: order.currency,
+    items: order.items.map(toOrderItemDto),
+  };
+}
+
+export function toOrderItemDto(item: OrderWithItems["items"][number]): OrderItemDto {
   return {
     id: item.id,
     name: item.name,

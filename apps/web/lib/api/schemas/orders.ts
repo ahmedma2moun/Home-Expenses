@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { moneySchema, monthLabelSchema } from "@/lib/api/schemas/common";
+import { CATEGORY_SLUGS } from "@/lib/services/categoryTaxonomy";
 
 const MAX_ITEMS_PER_ORDER = 200;
 const MAX_PAGE_SIZE = 100;
@@ -36,6 +37,18 @@ export const OrderListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
 });
 export type OrderListQuery = z.infer<typeof OrderListQuerySchema>;
+
+/**
+ * `GET /orders/by-category?month=YYYY-MM&categoryId=` — the Home screen's "expand a category"
+ * drill-down (PROJECT_SPEC.md §10, screen 1). Unlike `OrderListQuerySchema`, `month` is required:
+ * this reads `OrderItem` rows directly (§12 only forbids that for the analytics endpoints), and an
+ * unscoped scan across every month a user owns is not a query this endpoint offers.
+ */
+export const OrderItemsByCategoryQuerySchema = z.object({
+  month: monthLabelSchema,
+  categoryId: z.enum(CATEGORY_SLUGS),
+});
+export type OrderItemsByCategoryQuery = z.infer<typeof OrderItemsByCategoryQuerySchema>;
 
 /**
  * `PATCH /orders/:id`. Every field is optional — an omitted field is left untouched, which is what

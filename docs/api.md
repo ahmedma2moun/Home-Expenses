@@ -33,7 +33,7 @@ web clients talk to.
 | `DELETE` | `/orders/:id` | required | M3 (live) | Delete order (cascades items, recomputes summaries) |
 | `GET` | `/categories` | required | M0/M3 | Taxonomy (cacheable, ETag) |
 | `GET` | `/analytics/month/:month` | required | M4 | Totals, per-category breakdown, top merchants/items |
-| `GET` | `/analytics/trends?months=12` | required | M4 | Series of monthly totals + per-category series |
+| `GET` | `/analytics/trends?months=12` | required | M4 (live) | Series of monthly totals + per-category series |
 | `POST` | `/analytics/compare` | required | M5 | `{ monthA, monthB, refresh? }` → cached or fresh AI narrative |
 | `GET` | `/health` | none | M0 (live) | Liveness + DB + AI provider reachability |
 | `POST` | `/echo` | debug token | M0 (live) | Deploy smoke test — round-trips a question through the configured AI provider (not part of the product API) |
@@ -180,6 +180,56 @@ it is a string.
 
 `404` when the id doesn't exist *or* belongs to another user.
 
+## `GET /orders/by-category`
+
+The Home screen's "expand a category" drill-down (PROJECT_SPEC.md §10, screen 1): every item in
+one month that falls under one category, grouped by the order it was bought in. Query parameters:
+`month` (`YYYY-MM`, **required**), `categoryId` (required, one of the taxonomy slugs from
+`GET /categories`).
+
+Unlike `GET /orders`, `month` isn't optional — this reads `OrderItem` rows directly rather than the
+materialized `MonthlySummary`, and an unscoped scan across every month a user owns isn't a query
+this endpoint offers. It doesn't paginate: a month's items in one category is bounded enough that a
+cursor would be premature.
+
+Orders come back newest purchase first, same ordering as `GET /orders`; items within an order come
+back in `position` order. An order with no items in the requested category is simply absent from
+the list.
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "month": "2026-07",
+    "categoryId": "dairy_eggs",
+    "orders": [
+      {
+        "orderId": "clx1order",
+        "merchant": "Carrefour",
+        "purchasedAt": "2026-07-14T18:32:00.000Z",
+        "currency": "EGP",
+        "items": [
+          {
+            "id": "clx1item",
+            "name": "Milk",
+            "quantity": 2,
+            "unit": "L",
+            "unitPrice": "60.00",
+            "lineTotal": "120.00",
+            "categoryId": "dairy_eggs",
+            "aiCategoryId": "dairy_eggs",
+            "position": 0
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`categoryId` that isn't a known taxonomy slug is a `400`.
+
 ## `PATCH /orders/:id`
 
 Edits a saved order (BR-4). Every field is optional; an omitted field is left untouched, so
@@ -240,6 +290,48 @@ Response `200`:
 ```
 
 `404` when the id doesn't exist or belongs to another user.
+
+## `GET /analytics/trends`
+
+Series of monthly totals plus a per-category series, for the rolling window of `months` months
+ending at the current month (BR-5). Reads the materialized `MonthlySummary` table — never scans
+`OrderItem`. Every month in the window appears in the response, even with no spending, so a client
+can plot a continuous x-axis. `categories` is sorted by each category's total across *this*
+window, descending, with a `categoryId` tiebreak for a deterministic order — that ordering is not
+comparable across two different `GET /analytics/trends` calls with different `months`, nor with
+`GET /analytics/month/:month` (which sorts by that single month's total instead). Key any client-side
+color assignment by `categoryId`, not by array position, if it needs to stay stable across requests.
+
+Query: `months` (optional, integer 1–24, default 6). Out of that range, or non-integer, is a `400
+VALIDATION_ERROR`.
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "months": ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07"],
+    "totals": [
+      { "month": "2026-02", "totalAmount": "812.40" },
+      { "month": "2026-03", "totalAmount": "930.10" }
+      // … one entry per month in "months"
+    ],
+    "categories": [
+      {
+        "categoryId": "produce",
+        "name": "Produce",
+        "emoji": "🥦",
+        "totalAmount": "540.00",
+        "series": [
+          { "month": "2026-02", "totalAmount": "80.00" },
+          { "month": "2026-03", "totalAmount": "95.00" }
+          // … one entry per month in "months"
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## Stub error shape (every other route, until its milestone)
 

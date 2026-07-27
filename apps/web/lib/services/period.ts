@@ -24,6 +24,18 @@ export function formatMonthLabel(date: Date): string {
   return `${year}-${month}`;
 }
 
+/** Inclusive list of "YYYY-MM" labels from `start` to `end`. Empty if `start` is after `end`. */
+export function monthRange(start: Date, end: Date): string[] {
+  const labels: string[] = [];
+  let cursor = toPeriodMonth(start);
+  const last = toPeriodMonth(end);
+  while (cursor <= last) {
+    labels.push(formatMonthLabel(cursor));
+    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+  }
+  return labels;
+}
+
 export function isPeriodMonth(date: Date): boolean {
   return (
     date.getUTCDate() === 1 &&

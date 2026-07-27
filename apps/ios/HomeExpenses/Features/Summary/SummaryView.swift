@@ -103,23 +103,96 @@ struct SummaryView: View {
             } else {
                 Section("By category") {
                     ForEach(summary.categories) { category in
-                        HStack {
-                            Text(category.emoji)
-                            VStack(alignment: .leading) {
-                                Text(category.name)
-                                Text("\(category.itemCount) items")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(category.totalAmount.value.formatted(currencyCode: "EGP"))
-                                .monospacedDigit()
+                        DisclosureGroup(
+                            isExpanded: expansionBinding(for: category.categoryId)
+                        ) {
+                            categoryDetail(category.categoryId)
+                        } label: {
+                            categoryRow(category)
                         }
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    private func expansionBinding(for categoryId: String) -> Binding<Bool> {
+        Binding(
+            get: { viewModel.expandedCategoryId == categoryId },
+            set: { _ in viewModel.toggleCategory(categoryId) }
+        )
+    }
+
+    private func categoryRow(_ category: MonthCategoryTotalDTO) -> some View {
+        HStack {
+            Text(category.emoji)
+            VStack(alignment: .leading) {
+                Text(category.name)
+                Text("\(category.itemCount) items")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(category.totalAmount.value.formatted(currencyCode: "EGP"))
+                .monospacedDigit()
+        }
+    }
+
+    /// The expanded body: items in this category for the selected month, grouped by the order
+    /// they were bought in, newest purchase first — mirrors `GET /orders/by-category`.
+    @ViewBuilder
+    private func categoryDetail(_ categoryId: String) -> some View {
+        if viewModel.loadingCategoryId == categoryId {
+            ProgressView()
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 8)
+        } else if let error = viewModel.categoryItemsErrors[categoryId] {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button("Retry") { viewModel.retryCategoryItems(categoryId) }
+                    .font(.footnote)
+            }
+        } else if let page = viewModel.categoryItems[categoryId] {
+            if page.orders.isEmpty {
+                Text("No items found.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(page.orders) { group in
+                    orderGroup(group)
+                }
+            }
+        }
+    }
+
+    private func orderGroup(_ group: CategoryOrderGroupDTO) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(group.merchant)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if let displayDate = group.displayDate {
+                    Text(displayDate.formatted(date: .abbreviated, time: .omitted))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            ForEach(group.items) { item in
+                HStack {
+                    Text(item.name)
+                        .font(.footnote)
+                    Spacer()
+                    Text(item.lineTotal.value.formatted(currencyCode: group.currency))
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

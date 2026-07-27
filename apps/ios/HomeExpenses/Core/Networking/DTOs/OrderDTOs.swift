@@ -102,3 +102,25 @@ struct OrderItemInput: Encodable, Sendable {
 struct OrderDeleteResponse: Decodable, Sendable {
     let id: String
 }
+
+/// One order's items within a single category. Mirrors `GET /api/v1/orders/by-category` — the
+/// Home screen's "expand a category" drill-down (lib/services/orderManagement.ts).
+struct CategoryOrderGroupDTO: Decodable, Identifiable, Sendable {
+    let orderId: String
+    let merchant: String
+    let purchasedAt: String?
+    let currency: String
+    let items: [OrderItemDTO]
+
+    var id: String { orderId }
+
+    var displayDate: Date? {
+        purchasedAt.flatMap(FlexibleDateParser.parse)
+    }
+}
+
+struct CategoryItemsPageDTO: Decodable, Sendable {
+    let month: String
+    let categoryId: String
+    let orders: [CategoryOrderGroupDTO]
+}

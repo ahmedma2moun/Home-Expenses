@@ -1,0 +1,2 @@
+- [Review calibration](project_review_calibration.md) — auth is stubbed to DEV_USER_ID and tests are waived for the milestone build-out; don't flag either as blocking
+- [Recurring review findings](project_review_recurring_findings.md) — tie-break-less sorts, clock-reading services, 40+ line aggregators, unused schema types; check these first

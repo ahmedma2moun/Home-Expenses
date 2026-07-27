@@ -1,8 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/envelope";
-import { OrderListQuerySchema, OrderUpdateRequestSchema } from "@/lib/api/schemas/orders";
+import {
+  OrderItemsByCategoryQuerySchema,
+  OrderListQuerySchema,
+  OrderUpdateRequestSchema,
+} from "@/lib/api/schemas/orders";
 import { UNKNOWN_MERCHANT } from "./orders";
-import { deleteOrder, getOrder, listOrders, updateOrder } from "./orderManagement";
+import {
+  deleteOrder,
+  getOrder,
+  listOrderItemsByCategory,
+  listOrders,
+  updateOrder,
+} from "./orderManagement";
 
 const orderFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderFindFirst = vi.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -221,6 +231,75 @@ describe("listOrders", () => {
     expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
       where: { OR: [{ purchasedAt: null, id: { lt: "order-9" } }] },
     });
+  });
+});
+
+describe("listOrderItemsByCategory", () => {
+  it("scopes the query to the user, the month, and orders holding that category", async () => {
+    orderFindMany.mockResolvedValue([]);
+
+    await listOrderItemsByCategory(
+      "user-1",
+      OrderItemsByCategoryQuerySchema.parse({ month: "2026-07", categoryId: "dairy_eggs" }),
+    );
+
+    expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
+      where: {
+        userId: "user-1",
+        periodMonth: JULY,
+        items: { some: { categoryId: "dairy_eggs" } },
+      },
+      include: { items: { where: { categoryId: "dairy_eggs" }, orderBy: { position: "asc" } } },
+    });
+  });
+
+  // Items outside the requested category must not leak into another order's group just because
+  // the order also holds a matching item.
+  it("groups only the matching items under each order, newest purchase first", async () => {
+    orderFindMany.mockResolvedValue([
+      orderRow({
+        id: "order-1",
+        merchant: "Carrefour",
+        items: [itemRow({ id: "item-1", categoryId: "dairy_eggs" })],
+      }),
+    ]);
+
+    const page = await listOrderItemsByCategory(
+      "user-1",
+      OrderItemsByCategoryQuerySchema.parse({ month: "2026-07", categoryId: "dairy_eggs" }),
+    );
+
+    expect(page).toEqual({
+      month: "2026-07",
+      categoryId: "dairy_eggs",
+      orders: [
+        {
+          orderId: "order-1",
+          merchant: "Carrefour",
+          purchasedAt: PURCHASED_AT.toISOString(),
+          currency: "EGP",
+          items: [
+            {
+              id: "item-1",
+              name: "Milk",
+              quantity: 2,
+              unit: "L",
+              unitPrice: "60.00",
+              lineTotal: "120.00",
+              categoryId: "dairy_eggs",
+              aiCategoryId: "pantry",
+              position: 0,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("rejects an unknown category slug rather than querying", () => {
+    expect(() =>
+      OrderItemsByCategoryQuerySchema.parse({ month: "2026-07", categoryId: "not-a-category" }),
+    ).toThrow();
   });
 });
 

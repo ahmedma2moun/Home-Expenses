@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { OrderListQuerySchema, OrderUpdateRequestSchema } from "./orders";
+import {
+  OrderItemsByCategoryQuerySchema,
+  OrderListQuerySchema,
+  OrderUpdateRequestSchema,
+} from "./orders";
 
 const item = {
   name: "Milk",
@@ -26,6 +30,32 @@ describe("OrderListQuerySchema", () => {
 
   it("rejects a malformed month", () => {
     expect(OrderListQuerySchema.safeParse({ month: "2026-13" }).success).toBe(false);
+  });
+});
+
+describe("OrderItemsByCategoryQuerySchema", () => {
+  it("accepts a valid month and a known category slug", () => {
+    const result = OrderItemsByCategoryQuerySchema.parse({
+      month: "2026-07",
+      categoryId: "dairy_eggs",
+    });
+    expect(result).toEqual({ month: "2026-07", categoryId: "dairy_eggs" });
+  });
+
+  // Unlike OrderListQuerySchema, month is required — this reads OrderItem rows directly, so an
+  // unscoped scan across every month is not on offer.
+  it("rejects a missing month", () => {
+    expect(OrderItemsByCategoryQuerySchema.safeParse({ categoryId: "dairy_eggs" }).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects a category slug that isn't in the taxonomy", () => {
+    const result = OrderItemsByCategoryQuerySchema.safeParse({
+      month: "2026-07",
+      categoryId: "not-a-category",
+    });
+    expect(result.success).toBe(false);
   });
 });
 
