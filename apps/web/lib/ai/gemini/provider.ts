@@ -10,7 +10,7 @@ import type {
 import { withRetry } from "@/lib/ai/retry";
 import { getGeminiApiKey } from "@/lib/ai/config";
 
-const MAX_OUTPUT_TOKENS = 4096;
+const MAX_OUTPUT_TOKENS = 16384;
 
 let cachedClient: GoogleGenAI | undefined;
 
@@ -35,21 +35,31 @@ export class GeminiProvider implements ExtractionProvider, AnalysisProvider {
       { text: input.systemPrompt },
     ];
 
-    return this.generate(contents);
+    // Force strict JSON output (AI_PROVIDER.md §4) — without this, newer Gemini models can spend
+    // the whole output budget on hidden "thinking" tokens or wrap the answer in prose/fences,
+    // leaving nothing (or unparseable text) for us to extract.
+    return this.generate(contents, { responseMimeType: "application/json" });
   }
 
   async compare(input: AnalysisInput): Promise<AnalysisResult> {
     const contents: Part[] = [{ text: `${input.systemPrompt}\n\n${input.diffJson}` }];
-    return this.generate(contents);
+    return this.generate(contents, {});
   }
 
-  private async generate(contents: Part[]): Promise<ExtractionResult & AnalysisResult> {
+  private async generate(
+    contents: Part[],
+    extraConfig: { responseMimeType?: string },
+  ): Promise<ExtractionResult & AnalysisResult> {
     const outcome = await withRetry(
       (timeoutMs) =>
         getClient().models.generateContent({
           model: this.model,
           contents,
-          config: { maxOutputTokens: MAX_OUTPUT_TOKENS, httpOptions: { timeout: timeoutMs } },
+          config: {
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+            httpOptions: { timeout: timeoutMs },
+            ...extraConfig,
+          },
         }),
       { isRetryable },
     );

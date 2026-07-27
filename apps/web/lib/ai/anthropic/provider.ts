@@ -48,7 +48,7 @@ export class AnthropicProvider implements ExtractionProvider, AnalysisProvider {
     const outcome = await withRetry(
       (timeoutMs) =>
         getClient().messages.create(
-          { model: this.model, max_tokens: 4096, messages: [{ role: "user", content }] },
+          { model: this.model, max_tokens: 16384, messages: [{ role: "user", content }] },
           { timeout: timeoutMs },
         ),
       { isRetryable },
