@@ -133,7 +133,8 @@ Response `200`:
 }
 ```
 
-`nextCursor` is `null` on the last page.
+`nextCursor` is `null` on the last page. A `cursor` that isn't one of the caller's own order ids is
+a `400` — it is a keyset anchor, not an opaque token, so it has to resolve within their orders.
 
 ## `GET /orders/:id`
 
@@ -187,8 +188,14 @@ a `400`.
 
 `items` replaces the **whole** line-item list — the client owns the list, and the ids of rows the
 user just added don't exist server-side yet. Because that changes what the order is worth,
-`subtotal` and `total` are required whenever `items` is present. An unknown `categoryId` comes back
-as a field-level `400` (`details.issues[].path` = `items.<n>.categoryId`), not a 500.
+`subtotal` and `total` are required whenever `items` is present; their arithmetic is trusted, not
+checked (BR-2). Each item needs a distinct `position`. A `categoryId` that is unknown *or retired*
+comes back as a field-level `400` (`details.issues[].path` = `items.<n>.categoryId`), not a 500.
+
+Echo `aiCategoryId` back for rows that came from a parse — it is what lets a re-categorization be
+recorded in `ItemCategoryOverride` for the learning loop (§11). Only categories that changed in
+*this* edit are recorded, so re-saving an order doesn't file the same correction twice. Omit the
+field for rows the user added by hand.
 
 Moving an order to another month recomputes the summaries for **both** months and drops any cached
 `MonthComparison` referencing either one.

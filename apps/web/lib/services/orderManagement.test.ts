@@ -8,33 +8,45 @@ const orderFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderFindFirst = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderUpdate = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderDelete = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const orderItemFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderItemDeleteMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const receiptUpdateMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const categoryFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const overrideCreateMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 /** Records that a write actually opened a transaction, so guard clauses can prove they bailed. */
 const transaction = vi.fn<() => void>();
 
-vi.mock("@/lib/db/prisma", () => ({
-  prisma: {
+// One set of doubles serves both `prisma.x` and `tx.x`: which client a call went through is not
+// what these tests assert — the `where` clauses are. Built inside the factory because `vi.mock`
+// is hoisted above every top-level binding.
+vi.mock("@/lib/db/prisma", () => {
+  const client = {
     order: {
       findMany: (...args: unknown[]) => orderFindMany(...args),
       findFirst: (...args: unknown[]) => orderFindFirst(...args),
+      update: (...args: unknown[]) => orderUpdate(...args),
+      delete: (...args: unknown[]) => orderDelete(...args),
     },
+    orderItem: {
+      findMany: (...args: unknown[]) => orderItemFindMany(...args),
+      deleteMany: (...args: unknown[]) => orderItemDeleteMany(...args),
+    },
+    receipt: { updateMany: (...args: unknown[]) => receiptUpdateMany(...args) },
     category: { findMany: (...args: unknown[]) => categoryFindMany(...args) },
-    $transaction: (run: (tx: unknown) => Promise<unknown>) => {
-      transaction();
-      return run({
-        order: {
-          update: (...args: unknown[]) => orderUpdate(...args),
-          delete: (...args: unknown[]) => orderDelete(...args),
-        },
-        orderItem: { deleteMany: (...args: unknown[]) => orderItemDeleteMany(...args) },
-        receipt: { updateMany: (...args: unknown[]) => receiptUpdateMany(...args) },
-      });
+    itemCategoryOverride: { createMany: (...args: unknown[]) => overrideCreateMany(...args) },
+  };
+
+  return {
+    prisma: {
+      ...client,
+      $transaction: (run: (tx: unknown) => Promise<unknown>) => {
+        transaction();
+        return run(client);
+      },
     },
-  },
-  Prisma: {},
-}));
+    Prisma: {},
+  };
+});
 
 const recomputeMonthlySummary = vi.fn<(...args: unknown[]) => Promise<void>>();
 const invalidateMonthComparisons = vi.fn<(...args: unknown[]) => Promise<void>>();
@@ -50,13 +62,14 @@ function decimal(value: string) {
 
 const JULY = new Date(Date.UTC(2026, 6, 1));
 const AUGUST = new Date(Date.UTC(2026, 7, 1));
+const PURCHASED_AT = new Date("2026-07-14T18:32:00.000Z");
 
 function orderRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "order-1",
     receiptId: null,
     merchant: "Carrefour",
-    purchasedAt: new Date("2026-07-14T18:32:00.000Z"),
+    purchasedAt: PURCHASED_AT,
     periodMonth: JULY,
     currency: "EGP",
     subtotal: decimal("120.00"),
@@ -89,6 +102,23 @@ function itemRow(overrides: Record<string, unknown> = {}) {
 
 function updateInput(overrides: Record<string, unknown>) {
   return OrderUpdateRequestSchema.parse(overrides);
+}
+
+function itemsInput(overrides: Record<string, unknown> = {}) {
+  return {
+    subtotal: "60.00",
+    total: "60.00",
+    items: [
+      {
+        name: "Milk",
+        quantity: 1,
+        lineTotal: "60.00",
+        categoryId: "dairy_eggs",
+        position: 0,
+        ...overrides,
+      },
+    ],
+  };
 }
 
 afterEach(() => {
@@ -140,6 +170,58 @@ describe("listOrders", () => {
       itemCount: 3,
     });
   });
+
+  // Prisma's own `cursor` would resolve the anchor by primary key alone, letting another user's
+  // order id position this user's page.
+  it("resolves the cursor row within the caller's own orders", async () => {
+    orderFindFirst.mockResolvedValue({ id: "order-9", purchasedAt: PURCHASED_AT });
+    orderFindMany.mockResolvedValue([]);
+
+    await listOrders("user-1", OrderListQuerySchema.parse({ cursor: "order-9" }));
+
+    expect(orderFindFirst.mock.calls[0]?.[0]).toMatchObject({
+      where: { id: "order-9", userId: "user-1" },
+    });
+  });
+
+  it("rejects a cursor that isn't the caller's own order", async () => {
+    orderFindFirst.mockResolvedValue(null);
+
+    await expect(
+      listOrders("user-1", OrderListQuerySchema.parse({ cursor: "someone-elses" })),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR", httpStatus: 400 });
+    expect(orderFindMany).not.toHaveBeenCalled();
+  });
+
+  it("pages past a dated cursor with a keyset predicate, not a NULL comparison", async () => {
+    orderFindFirst.mockResolvedValue({ id: "order-9", purchasedAt: PURCHASED_AT });
+    orderFindMany.mockResolvedValue([]);
+
+    await listOrders("user-1", OrderListQuerySchema.parse({ cursor: "order-9" }));
+
+    expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
+      where: {
+        OR: [
+          { purchasedAt: { lt: PURCHASED_AT } },
+          { purchasedAt: null },
+          { purchasedAt: PURCHASED_AT, id: { lt: "order-9" } },
+        ],
+      },
+    });
+  });
+
+  // The date-less block sorts last, so paging from inside it stays inside it. Prisma's cursor
+  // compared against NULL here and silently returned nothing.
+  it("keeps paging through date-less orders", async () => {
+    orderFindFirst.mockResolvedValue({ id: "order-9", purchasedAt: null });
+    orderFindMany.mockResolvedValue([]);
+
+    await listOrders("user-1", OrderListQuerySchema.parse({ cursor: "order-9" }));
+
+    expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
+      where: { OR: [{ purchasedAt: null, id: { lt: "order-9" } }] },
+    });
+  });
 });
 
 describe("getOrder", () => {
@@ -170,6 +252,8 @@ describe("updateOrder", () => {
   function arrangeExistingOrder(periodMonth = JULY) {
     orderFindFirst.mockResolvedValue({ periodMonth });
     orderUpdate.mockResolvedValue(orderRow({ periodMonth }));
+    orderItemFindMany.mockResolvedValue([]);
+    categoryFindMany.mockResolvedValue([{ id: "dairy_eggs" }]);
   }
 
   it("patches only the fields the client sent", async () => {
@@ -220,19 +304,8 @@ describe("updateOrder", () => {
 
   it("replaces the line items through the order's own user scope", async () => {
     arrangeExistingOrder();
-    categoryFindMany.mockResolvedValue([{ id: "dairy_eggs" }]);
 
-    await updateOrder(
-      "user-1",
-      "order-1",
-      updateInput({
-        subtotal: "60.00",
-        total: "60.00",
-        items: [
-          { name: "Milk", quantity: 1, lineTotal: "60.00", categoryId: "dairy_eggs", position: 0 },
-        ],
-      }),
-    );
+    await updateOrder("user-1", "order-1", updateInput(itemsInput()));
 
     expect(orderItemDeleteMany.mock.calls[0]?.[0]).toEqual({
       where: { orderId: "order-1", order: { userId: "user-1" } },
@@ -254,20 +327,14 @@ describe("updateOrder", () => {
   });
 
   // A bad slug is a foreign-key violation, which would reach the client as an opaque 500.
-  it("rejects an unknown category before touching the order", async () => {
+  it("rejects an unknown category before deleting anything", async () => {
     arrangeExistingOrder();
     categoryFindMany.mockResolvedValue([]);
 
     const failure = updateOrder(
       "user-1",
       "order-1",
-      updateInput({
-        subtotal: "60.00",
-        total: "60.00",
-        items: [
-          { name: "Milk", quantity: 1, lineTotal: "60.00", categoryId: "not_a_slug", position: 0 },
-        ],
-      }),
+      updateInput(itemsInput({ categoryId: "not_a_slug" })),
     );
 
     await expect(failure).rejects.toBeInstanceOf(AppError);
@@ -275,16 +342,71 @@ describe("updateOrder", () => {
       httpStatus: 400,
       details: { issues: [{ path: "items.0.categoryId" }] },
     });
-    expect(transaction).not.toHaveBeenCalled();
+    expect(orderItemDeleteMany).not.toHaveBeenCalled();
+    expect(orderUpdate).not.toHaveBeenCalled();
   });
 
-  it("raises a 404 for another user's order without opening a transaction", async () => {
+  // A retired slug is no longer offered by GET /categories, so nothing legitimate still sends one.
+  it("only accepts categories that are still active", async () => {
+    arrangeExistingOrder();
+
+    await updateOrder("user-1", "order-1", updateInput(itemsInput()));
+
+    expect(categoryFindMany.mock.calls[0]?.[0]).toMatchObject({
+      where: { id: { in: ["dairy_eggs"] }, isActive: true },
+    });
+  });
+
+  // §11: the edit screen is the same correction signal as the review screen.
+  it("records a re-categorization for the learning loop", async () => {
+    arrangeExistingOrder();
+    orderItemFindMany.mockResolvedValue([{ position: 0, categoryId: "pantry" }]);
+
+    await updateOrder("user-1", "order-1", updateInput(itemsInput({ aiCategoryId: "pantry" })));
+
+    expect(overrideCreateMany.mock.calls[0]?.[0]).toMatchObject({
+      data: [
+        {
+          userId: "user-1",
+          merchant: "Carrefour",
+          itemName: "Milk",
+          aiCategoryId: "pantry",
+          finalCategoryId: "dairy_eggs",
+        },
+      ],
+    });
+  });
+
+  // Re-saving an unchanged order would otherwise file the same correction on every PATCH.
+  it("doesn't re-record a correction the user already made", async () => {
+    arrangeExistingOrder();
+    orderItemFindMany.mockResolvedValue([{ position: 0, categoryId: "dairy_eggs" }]);
+
+    await updateOrder("user-1", "order-1", updateInput(itemsInput({ aiCategoryId: "pantry" })));
+
+    expect(overrideCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("raises a 404 for another user's order without writing", async () => {
     orderFindFirst.mockResolvedValue(null);
 
     await expect(
       updateOrder("user-1", "order-1", updateInput({ merchant: "Metro" })),
     ).rejects.toMatchObject({ httpStatus: 404 });
-    expect(transaction).not.toHaveBeenCalled();
+    expect(orderUpdate).not.toHaveBeenCalled();
+  });
+
+  // The ownership read has to see the same snapshot as the write, or a concurrent move leaves the
+  // month the order came from stale.
+  it("establishes ownership inside the write transaction", async () => {
+    arrangeExistingOrder();
+
+    await updateOrder("user-1", "order-1", updateInput({ merchant: "Metro" }));
+
+    expect(transaction).toHaveBeenCalled();
+    expect(orderFindFirst.mock.calls[0]?.[0]).toMatchObject({
+      where: { id: "order-1", userId: "user-1" },
+    });
   });
 });
 
@@ -320,10 +442,10 @@ describe("deleteOrder", () => {
     expect(receiptUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("raises a 404 for another user's order without opening a transaction", async () => {
+  it("raises a 404 for another user's order without deleting", async () => {
     orderFindFirst.mockResolvedValue(null);
 
     await expect(deleteOrder("user-1", "order-1")).rejects.toMatchObject({ httpStatus: 404 });
-    expect(transaction).not.toHaveBeenCalled();
+    expect(orderDelete).not.toHaveBeenCalled();
   });
 });

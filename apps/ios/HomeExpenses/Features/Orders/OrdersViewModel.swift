@@ -7,51 +7,73 @@ final class OrdersViewModel: ObservableObject {
     @Published private(set) var orders: [OrderSummaryDTO] = []
     @Published private(set) var isLoading = false
     @Published private(set) var selectedMonth: Date = MonthLabel.startOfMonth(Date())
-    @Published var errorMessage: String?
+    /// Replaces the list — the month couldn't be read at all.
+    @Published var loadError: String?
+    /// Shown over the list instead: a failed delete must not throw away rows we still have.
+    @Published var actionError: String?
 
     private let client = APIClient.shared
     private var nextCursor: String?
+    private var loadedMonth: Date?
     private var isLoadingMore = false
+    private var loadTask: Task<Void, Never>?
 
-    var monthTotal: Decimal {
-        orders.reduce(Decimal(0)) { $0 + $1.total.value }
-    }
-
-    /// Every order in a month shares the month's currency in practice; the first one is a better
-    /// guess for the header than a hardcoded default.
-    var currencyCode: String {
-        orders.first?.currency ?? "EGP"
+    /// Honest about a partial list: the count is what's loaded, not what the month holds.
+    var countLabel: String {
+        let noun = orders.count == 1 ? "order" : "orders"
+        return nextCursor == nil ? "\(orders.count) \(noun)" : "\(orders.count)+ \(noun)"
     }
 
     func shiftMonth(by months: Int) {
         selectedMonth = Calendar.current.date(byAdding: .month, value: months, to: selectedMonth) ?? selectedMonth
-        Task { await load() }
+        reload()
+    }
+
+    /// Cancels any load still in flight, so tapping through months can't let a slow earlier
+    /// response land on top of a later one.
+    func reload() {
+        loadTask?.cancel()
+        loadTask = Task { await load() }
     }
 
     func load() async {
+        let month = selectedMonth
+        if loadedMonth != month {
+            orders = []
+            nextCursor = nil
+        }
         isLoading = true
-        errorMessage = nil
+        loadError = nil
         defer { isLoading = false }
 
         do {
-            let page: OrderListPageDTO = try await client.get("/api/v1/orders", query: monthQuery())
+            let page: OrderListPageDTO = try await client.get("/api/v1/orders", query: query(for: month))
+            guard month == selectedMonth else { return }
             orders = page.orders
             nextCursor = page.nextCursor
+            loadedMonth = month
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load your orders."
+            // Switching tabs or months cancels the request; that's the user's own doing, not a
+            // failure to put on screen.
+            guard month == selectedMonth, !error.isTaskCancellation else { return }
+            loadError = (error as? LocalizedError)?.errorDescription ?? "Couldn't load your orders."
         }
     }
 
-    /// Called as the last row appears. A failed page is silent: the list the user already has is
-    /// still correct, and an error banner over a working screen would be worse than a short list.
+    /// Called as the last row appears. A failed page stays quiet: the rows already on screen are
+    /// still correct, and scrolling back to the end retries.
     func loadNextPageIfNeeded(after order: OrderSummaryDTO) async {
         guard let cursor = nextCursor, !isLoadingMore, order.id == orders.last?.id else { return }
+        let month = selectedMonth
         isLoadingMore = true
         defer { isLoadingMore = false }
 
-        var query = monthQuery()
-        query.append(URLQueryItem(name: "cursor", value: cursor))
-        guard let page: OrderListPageDTO = try? await client.get("/api/v1/orders", query: query) else {
+        var pageQuery = query(for: month)
+        pageQuery.append(URLQueryItem(name: "cursor", value: cursor))
+        guard
+            let page: OrderListPageDTO = try? await client.get("/api/v1/orders", query: pageQuery),
+            month == selectedMonth
+        else {
             return
         }
         orders.append(contentsOf: page.orders)
@@ -59,22 +81,17 @@ final class OrdersViewModel: ObservableObject {
     }
 
     func delete(_ order: OrderSummaryDTO) async {
-        errorMessage = nil
+        actionError = nil
         do {
             let _: OrderDeleteResponse = try await client.delete("/api/v1/orders/\(order.id)")
             orders.removeAll { $0.id == order.id }
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't delete this order."
+            guard !error.isTaskCancellation else { return }
+            actionError = (error as? LocalizedError)?.errorDescription ?? "Couldn't delete this order."
         }
     }
 
-    func delete(at offsets: IndexSet) async {
-        for order in offsets.map({ orders[$0] }) {
-            await delete(order)
-        }
-    }
-
-    private func monthQuery() -> [URLQueryItem] {
-        [URLQueryItem(name: "month", value: MonthLabel.format(selectedMonth))]
+    private func query(for month: Date) -> [URLQueryItem] {
+        [URLQueryItem(name: "month", value: MonthLabel.format(month))]
     }
 }

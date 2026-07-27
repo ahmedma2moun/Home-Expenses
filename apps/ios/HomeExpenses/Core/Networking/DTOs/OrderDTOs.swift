@@ -20,6 +20,15 @@ struct OrderSummaryDTO: Decodable, Identifiable, Sendable {
     var displayDate: Date? {
         purchasedAt.flatMap(FlexibleDateParser.parse) ?? FlexibleDateParser.parse(createdAt)
     }
+
+    var itemCountLabel: String {
+        itemCount == 1 ? "1 item" : "\(itemCount) items"
+    }
+
+    var subtitle: String {
+        guard let displayDate else { return itemCountLabel }
+        return "\(displayDate.formatted(date: .abbreviated, time: .omitted)) · \(itemCountLabel)"
+    }
 }
 
 struct OrderListPageDTO: Decodable, Sendable {
@@ -42,7 +51,9 @@ struct OrderItemDTO: Decodable, Identifiable, Sendable {
     let position: Int
 }
 
-/// Mirrors `GET /api/v1/orders/:id` and the body of a successful `PATCH`.
+/// Mirrors `GET /api/v1/orders/:id` and the body of a successful `PATCH`. The response's
+/// `createdAt`/`updatedAt` are deliberately left out — the edit screen shows neither, and
+/// `Decodable` ignores keys it wasn't given a home for.
 struct OrderDetailDTO: Decodable, Sendable {
     let id: String
     let receiptId: String?

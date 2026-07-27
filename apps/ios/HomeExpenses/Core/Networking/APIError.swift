@@ -48,6 +48,21 @@ enum APIError: Error {
     case server(status: Int, payload: APIErrorPayload?)
 }
 
+extension Error {
+    /// A request the user themselves ended — switching tabs or months cancels the `Task` driving
+    /// it. `URLSession` reports that as an ordinary transport failure, and showing "Network error:
+    /// cancelled" for something they just did reads as a bug.
+    var isTaskCancellation: Bool {
+        if self is CancellationError {
+            return true
+        }
+        if let apiError = self as? APIError, case .transport(let underlying) = apiError {
+            return (underlying as? URLError)?.code == .cancelled
+        }
+        return (self as? URLError)?.code == .cancelled
+    }
+}
+
 extension APIError: LocalizedError {
     /// A receipt can fail on many items at once; listing them all would push the screen's own
     /// controls out of view, so show the first few and count the rest.

@@ -4,6 +4,7 @@ import SwiftUI
 /// (PROJECT_SPEC.md §10, screen 5).
 struct OrdersView: View {
     @StateObject private var viewModel = OrdersViewModel()
+    @State private var pendingDeletion: OrderSummaryDTO?
 
     var body: some View {
         NavigationStack {
@@ -17,6 +18,22 @@ struct OrdersView: View {
                 .refreshable {
                     await viewModel.load()
                 }
+                .confirmationDialog(
+                    "Delete this order?",
+                    isPresented: presenting($pendingDeletion),
+                    presenting: pendingDeletion
+                ) { order in
+                    Button("Delete order", role: .destructive) {
+                        Task { await viewModel.delete(order) }
+                    }
+                } message: { order in
+                    Text("\(order.merchant) — its items are removed and the month's totals are recalculated.")
+                }
+                .alert("Couldn't delete", isPresented: presenting($viewModel.actionError)) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(viewModel.actionError ?? "")
+                }
         }
     }
 
@@ -25,13 +42,13 @@ struct OrdersView: View {
         VStack(spacing: 0) {
             monthPicker
 
-            if let errorMessage = viewModel.errorMessage {
+            if let loadError = viewModel.loadError {
                 ContentUnavailableView {
                     Label("Couldn't load your orders", systemImage: "exclamationmark.triangle")
                 } description: {
-                    Text(errorMessage)
+                    Text(loadError)
                 } actions: {
-                    Button("Retry") { Task { await viewModel.load() } }
+                    Button("Retry") { viewModel.reload() }
                 }
             } else if viewModel.isLoading && viewModel.orders.isEmpty {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,11 +88,11 @@ struct OrdersView: View {
 
     private var orderList: some View {
         List {
-            Section {
+            Section(viewModel.countLabel) {
                 ForEach(viewModel.orders) { order in
                     NavigationLink {
                         OrderEditView(orderId: order.id) {
-                            Task { await viewModel.load() }
+                            viewModel.reload()
                         }
                     } label: {
                         OrderRow(order: order)
@@ -83,19 +100,32 @@ struct OrdersView: View {
                     .task {
                         await viewModel.loadNextPageIfNeeded(after: order)
                     }
-                }
-                .onDelete { offsets in
-                    Task { await viewModel.delete(at: offsets) }
-                }
-            } header: {
-                HStack {
-                    Text("\(viewModel.orders.count) orders")
-                    Spacer()
-                    Text(viewModel.monthTotal.formatted(currencyCode: viewModel.currencyCode))
+                    // Deliberately not `.onDelete`: deleting cascades the items, recomputes the
+                    // month, and releases the receipt, which is too much to hang off one swipe.
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            pendingDeletion = order
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    /// Bridges "is there a pending value?" to the `isPresented` binding SwiftUI wants, and clears
+    /// the value when the sheet dismisses itself.
+    private func presenting<Value>(_ value: Binding<Value?>) -> Binding<Bool> {
+        Binding(
+            get: { value.wrappedValue != nil },
+            set: { isPresented in
+                if !isPresented {
+                    value.wrappedValue = nil
+                }
+            }
+        )
     }
 }
 
@@ -107,7 +137,7 @@ private struct OrderRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(order.merchant)
                     .font(.body)
-                Text(subtitle)
+                Text(order.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -116,12 +146,6 @@ private struct OrderRow: View {
                 .monospacedDigit()
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private var subtitle: String {
-        let itemLabel = order.itemCount == 1 ? "1 item" : "\(order.itemCount) items"
-        guard let date = order.displayDate else { return itemLabel }
-        return "\(date.formatted(date: .abbreviated, time: .omitted)) · \(itemLabel)"
     }
 }
 

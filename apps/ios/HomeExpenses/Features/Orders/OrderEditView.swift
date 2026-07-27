@@ -17,18 +17,25 @@ struct OrderEditView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.isLoading {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
+            if viewModel.isLoaded {
                 form
                 footer
+            } else if let loadError = viewModel.loadError {
+                ContentUnavailableView {
+                    Label("Couldn't load this order", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(loadError)
+                } actions: {
+                    Button("Retry") { Task { await viewModel.loadAll() } }
+                }
+            } else {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationTitle("Edit order")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await viewModel.load()
-            await viewModel.loadCategories()
+            await viewModel.loadAll()
         }
         .onChange(of: viewModel.didFinish) { _, finished in
             if finished {
@@ -93,9 +100,8 @@ struct OrderEditView: View {
                 Image(systemName: "chevron.left")
             }
             .accessibilityLabel("Previous month")
-            Text(MonthLabel.format(viewModel.periodMonth))
-                .monospacedDigit()
-                .frame(minWidth: 70)
+            Text(MonthLabel.displayName(viewModel.periodMonth))
+                .font(.subheadline)
             Button {
                 viewModel.shiftMonth(by: 1)
             } label: {
@@ -197,12 +203,27 @@ private struct OrderItemEditor: View {
                     }
                 }
             } label: {
-                let selected = categories.first { $0.id == item.categoryId }
-                Label(selected.map { "\($0.emoji) \($0.name)" } ?? item.categoryId, systemImage: "tag")
+                Label(selectedCategoryLabel, systemImage: "tag")
                     .font(.caption)
             }
+            // VoiceOver would otherwise read the emoji's Unicode name, or the raw slug before the
+            // taxonomy has loaded.
+            .accessibilityLabel("Category, \(selectedCategoryName)")
+            .accessibilityHint("Changes this item's category")
         }
         .padding(.vertical, 4)
+    }
+
+    private var selectedCategory: CategoryDTO? {
+        categories.first { $0.id == item.categoryId }
+    }
+
+    private var selectedCategoryLabel: String {
+        selectedCategory.map { "\($0.emoji) \($0.name)" } ?? item.categoryId
+    }
+
+    private var selectedCategoryName: String {
+        selectedCategory?.name ?? item.categoryId
     }
 }
 

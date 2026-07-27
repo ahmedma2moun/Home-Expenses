@@ -11,8 +11,12 @@ enum MonthLabel {
     /// keeps "2026-07" on the first of July for every user: a UTC midnight would already be June
     /// for anyone west of Greenwich.
     static func parse(_ label: String) -> Date? {
-        let parts = label.split(separator: "-")
-        guard parts.count == 2, let year = Int(parts[0]), let month = Int(parts[1]) else {
+        // `Calendar` is lenient — it would roll "2026-99" over into 2033 — so the shape and the
+        // range are both checked here rather than trusted to the date conversion.
+        let parts = label.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts[0].count == 4, parts[1].count == 2,
+              let year = Int(parts[0]), let month = Int(parts[1]), (1...12).contains(month)
+        else {
             return nil
         }
         return Calendar.current.date(from: DateComponents(year: year, month: month, day: 1))

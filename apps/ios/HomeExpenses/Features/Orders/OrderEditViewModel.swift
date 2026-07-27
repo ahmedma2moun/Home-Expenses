@@ -14,9 +14,13 @@ final class OrderEditViewModel: ObservableObject {
     @Published var discount: Decimal = 0
     @Published var notes = ""
     @Published private(set) var categories: [CategoryDTO] = []
-    @Published private(set) var isLoading = false
     @Published private(set) var isSaving = false
     @Published private(set) var didFinish = false
+    /// Set only when the order itself couldn't be read. The form stays hidden until it clears —
+    /// editing defaults over an order we never loaded would save nonsense over a real one.
+    @Published private(set) var loadError: String?
+    @Published private(set) var isLoaded = false
+    /// A save or delete that failed, shown alongside the form the user is still editing.
     @Published var errorMessage: String?
 
     private let orderId: String
@@ -34,16 +38,27 @@ final class OrderEditViewModel: ObservableObject {
         subtotal + tax - discount
     }
 
+    /// The screen needs both the order and the taxonomy behind its category chips.
+    func loadAll() async {
+        await load()
+        await loadCategories()
+    }
+
     func load() async {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
+        loadError = nil
 
         do {
             let order: OrderDetailDTO = try await client.get("/api/v1/orders/\(orderId)")
-            apply(order)
+            guard let month = MonthLabel.parse(order.periodMonth) else {
+                // Guessing a month here would quietly move the order on the next save.
+                loadError = "This order's month (\(order.periodMonth)) couldn't be read."
+                return
+            }
+            apply(order, periodMonth: month)
+            isLoaded = true
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load this order."
+            guard !error.isTaskCancellation else { return }
+            loadError = (error as? LocalizedError)?.errorDescription ?? "Couldn't load this order."
         }
     }
 
@@ -111,10 +126,10 @@ final class OrderEditViewModel: ObservableObject {
         }
     }
 
-    private func apply(_ order: OrderDetailDTO) {
+    private func apply(_ order: OrderDetailDTO, periodMonth month: Date) {
         merchant = order.merchant
         purchasedAt = order.purchasedAt.flatMap(FlexibleDateParser.parse)
-        periodMonth = MonthLabel.parse(order.periodMonth) ?? MonthLabel.startOfMonth(Date())
+        periodMonth = month
         currency = order.currency
         tax = order.tax.value
         discount = order.discount.value
