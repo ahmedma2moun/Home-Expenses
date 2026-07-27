@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ConfirmReceiptRequestSchema } from "./receipts";
 
-const confirmPayload = {
+const confirmRequest = {
   merchant: "Carrefour",
   purchasedAt: "2026-07-26T18:32:00+02:00",
   periodMonth: "2026-07",
@@ -26,25 +26,35 @@ describe("ConfirmReceiptRequestSchema.periodMonth", () => {
   // future month (e.g. a purchase on the 31st charged to next month's budget).
   it("accepts a periodMonth in a future month", () => {
     const result = ConfirmReceiptRequestSchema.safeParse({
-      ...confirmPayload,
-      periodMonth: "2027-01",
+      ...confirmRequest,
+      periodMonth: "2099-12",
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.periodMonth).toBe("2099-12");
+    }
   });
 
   it("accepts a periodMonth in a past month", () => {
     const result = ConfirmReceiptRequestSchema.safeParse({
-      ...confirmPayload,
-      periodMonth: "2025-11",
+      ...confirmRequest,
+      periodMonth: "1999-11",
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.periodMonth).toBe("1999-11");
+    }
   });
 
   it.each(["2026-13", "2026-00", "2026-7", "07-2026", "2026-07-01"])(
     "rejects malformed month %s",
     (periodMonth) => {
-      const result = ConfirmReceiptRequestSchema.safeParse({ ...confirmPayload, periodMonth });
+      const result = ConfirmReceiptRequestSchema.safeParse({ ...confirmRequest, periodMonth });
       expect(result.success).toBe(false);
+      if (!result.success) {
+        const failedPaths = result.error.issues.map((issue) => issue.path.join("."));
+        expect(failedPaths).toContain("periodMonth");
+      }
     },
   );
 });

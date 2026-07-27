@@ -55,14 +55,18 @@ describe("suggestPeriodMonth", () => {
 });
 
 describe("parseMonthLabel", () => {
-  it("parses a month label to the first of that month at UTC midnight", () => {
-    expect(parseMonthLabel("2026-07").toISOString()).toBe("2026-07-01T00:00:00.000Z");
-  });
+  const cases: { label: string; expected: string }[] = [
+    { label: "2026-07", expected: "2026-07-01T00:00:00.000Z" },
+    { label: "2099-12", expected: "2099-12-01T00:00:00.000Z" },
+    { label: "1999-01", expected: "1999-01-01T00:00:00.000Z" },
+  ];
 
-  // BR-4: the accounting month is the user's choice — future months are as valid as past ones.
-  it("parses a future month label", () => {
-    expect(parseMonthLabel("2027-03").toISOString()).toBe("2027-03-01T00:00:00.000Z");
-  });
+  it.each(cases)(
+    "parses $label to the first of the month at UTC midnight",
+    ({ label, expected }) => {
+      expect(parseMonthLabel(label).toISOString()).toBe(expected);
+    },
+  );
 
   it("round-trips through formatMonthLabel", () => {
     expect(formatMonthLabel(parseMonthLabel("2026-12"))).toBe("2026-12");
