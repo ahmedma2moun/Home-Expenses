@@ -42,7 +42,10 @@ export const ConfirmOrderItemSchema = z.object({
 export type ConfirmOrderItem = z.infer<typeof ConfirmOrderItemSchema>;
 
 export const ConfirmReceiptRequestSchema = z.object({
-  merchant: z.string().min(1).max(200),
+  // Blank is accepted: plenty of receipts have no legible merchant (cropped photo, logo-only
+  // header), and losing a whole confirmed order to a 400 is worse than storing a placeholder.
+  // `confirmReceipt` substitutes UNKNOWN_MERCHANT — the wire contract stays "a string".
+  merchant: z.string().trim().max(200),
   purchasedAt: z.iso.datetime({ offset: true }).nullable().optional(),
   periodMonth: monthLabelSchema,
   currency: z.string().min(1).max(8),

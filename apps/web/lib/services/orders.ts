@@ -6,6 +6,18 @@ import type { ConfirmReceiptRequest } from "@/lib/api/schemas/receipts";
 
 const CONFIRMABLE_STATUSES = new Set(["PARSED", "FAILED"]);
 
+/**
+ * Stand-in when the receipt's merchant was never legible and the user didn't supply one. Grouping
+ * these under a single name keeps the spend visible in analytics rather than silently absent.
+ *
+ * It is NOT a usable learning key: `ItemCategoryOverride` rows are written on
+ * `(userId, merchant, itemName)`, so every anonymous receipt collapses into one bucket and a
+ * correction made on one would otherwise be suggested for an unrelated one. The rows are still
+ * recorded — they are labelled data for prompt tuning (§11) — but the merchant → category lookup,
+ * when it is built, must exclude this value rather than match on it.
+ */
+export const UNKNOWN_MERCHANT = "Unknown merchant";
+
 export interface ConfirmReceiptResult {
   orderId: string;
 }
@@ -26,7 +38,7 @@ export async function confirmReceipt(
   }
 
   if (receipt.status === "CONFIRMED") {
-    const existingOrder = await prisma.order.findUnique({ where: { receiptId } });
+    const existingOrder = await prisma.order.findFirst({ where: { receiptId, userId } });
     if (existingOrder) {
       return { orderId: existingOrder.id };
     }
@@ -41,13 +53,14 @@ export async function confirmReceipt(
   }
 
   const periodMonth = parseMonthLabel(input.periodMonth);
+  const merchant = input.merchant.trim() || UNKNOWN_MERCHANT;
 
   const orderId = await prisma.$transaction(async (tx) => {
     const order = await tx.order.create({
       data: {
         userId,
         receiptId: receipt.id,
-        merchant: input.merchant,
+        merchant,
         purchasedAt: input.purchasedAt ? new Date(input.purchasedAt) : null,
         periodMonth,
         currency: input.currency,
@@ -82,7 +95,7 @@ export async function confirmReceipt(
       )
       .map((item) => ({
         userId,
-        merchant: input.merchant,
+        merchant,
         itemName: item.name,
         aiCategoryId: item.aiCategoryId,
         finalCategoryId: item.categoryId,

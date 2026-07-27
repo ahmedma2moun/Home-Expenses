@@ -21,6 +21,58 @@ const confirmRequest = {
   ],
 };
 
+describe("ConfirmReceiptRequestSchema.merchant", () => {
+  // Accepted blank on purpose — an unreadable merchant must not cost the user a confirmed order.
+  // `confirmReceipt` substitutes the placeholder; the schema's job is only to let it through.
+  it("accepts a blank merchant", () => {
+    const result = ConfirmReceiptRequestSchema.safeParse({ ...confirmRequest, merchant: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.merchant).toBe("");
+    }
+  });
+
+  it("trims surrounding whitespace", () => {
+    const result = ConfirmReceiptRequestSchema.safeParse({
+      ...confirmRequest,
+      merchant: "  Carrefour  ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.merchant).toBe("Carrefour");
+    }
+  });
+
+  it("reduces a whitespace-only merchant to blank", () => {
+    const result = ConfirmReceiptRequestSchema.safeParse({ ...confirmRequest, merchant: "   " });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.merchant).toBe("");
+    }
+  });
+
+  it("still rejects a merchant longer than 200 characters", () => {
+    const result = ConfirmReceiptRequestSchema.safeParse({
+      ...confirmRequest,
+      merchant: "x".repeat(201),
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join("."))).toContain("merchant");
+    }
+  });
+
+  it("still rejects an omitted merchant", () => {
+    const withoutMerchant: Record<string, unknown> = { ...confirmRequest };
+    delete withoutMerchant.merchant;
+    const result = ConfirmReceiptRequestSchema.safeParse(withoutMerchant);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join("."))).toContain("merchant");
+    }
+  });
+});
+
 describe("ConfirmReceiptRequestSchema.periodMonth", () => {
   // BR-4: the user chooses the accounting month freely — a receipt can be booked into a
   // future month (e.g. a purchase on the 31st charged to next month's budget).

@@ -20,6 +20,21 @@ export class AppError extends Error {
   }
 }
 
+/**
+ * The `details` payload of a VALIDATION_ERROR. `apps/ios` decodes this shape to tell the user which
+ * field failed (see APIError.swift and docs/api.md) — renaming a field here is a client break, so
+ * keep `toAppError` building it through this type rather than an inline object literal.
+ */
+export interface ValidationIssue {
+  /** Dotted path to the offending field, e.g. `items.0.lineTotal`. */
+  path: string;
+  message: string;
+}
+
+export interface ValidationDetails {
+  issues: ValidationIssue[];
+}
+
 export interface ApiSuccessEnvelope<T> {
   data: T;
 }
