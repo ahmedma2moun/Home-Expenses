@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
-import { AppError, dataEnvelope, errorEnvelope } from "@/lib/api/envelope";
+import { AppError, dataEnvelope, errorEnvelope, type ValidationDetails } from "@/lib/api/envelope";
 import { DEV_USER_ID } from "@/lib/api/devUser";
 
 interface HandlerContext {
@@ -75,9 +75,10 @@ function toAppError(error: unknown): AppError {
     return error;
   }
   if (error instanceof ZodError) {
-    return new AppError("VALIDATION_ERROR", "Request failed validation.", 400, {
+    const details: ValidationDetails = {
       issues: error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
-    });
+    };
+    return new AppError("VALIDATION_ERROR", "Request failed validation.", 400, details);
   }
   return new AppError("INTERNAL_ERROR", "Something went wrong.", 500);
 }

@@ -24,7 +24,7 @@ web clients talk to.
 | `POST` | `/receipts` | required | M1 | `{ clientRef, images: [{ blobKey, position, mimeType }] }` → creates receipt, starts parse |
 | `GET` | `/receipts/:id` | required | M1 | Poll status + `parsedPayload` when `PARSED` |
 | `POST` | `/receipts/:id/reparse` | required | M1 | Retry a `FAILED` parse (counts against quota) |
-| `POST` | `/receipts/:id/confirm` | required | M2 | Body = final user-edited order + items + `periodMonth` → creates `Order` |
+| `POST` | `/receipts/:id/confirm` | required | M2 | Body = final user-edited order + items + `periodMonth` → creates `Order`. `merchant` is required but may be an empty string — it is trimmed, and a blank one is stored as `"Unknown merchant"`. `periodMonth` may be any month, past or future (BR-4) |
 | `DELETE` | `/receipts/:id` | required | M1 | Discard an unconfirmed receipt (soft delete + blob cleanup job) |
 | `GET` | `/orders?month=YYYY-MM&cursor=` | required | M3 | Paginated orders for a month |
 | `POST` | `/orders` | required | M3 | Manual order entry (no receipt) |
@@ -122,6 +122,21 @@ Response `501`:
   "error": {
     "code": "UNAUTHENTICATED",
     "message": "Missing bearer token."
+  }
+}
+```
+
+`400` (Zod rejected the body). `details.issues` names the offending fields — clients should show
+these rather than the generic `message`:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request failed validation.",
+    "details": {
+      "issues": [{ "path": "items.0.lineTotal", "message": "Money must be a string like \"45.00\"." }]
+    }
   }
 }
 ```
