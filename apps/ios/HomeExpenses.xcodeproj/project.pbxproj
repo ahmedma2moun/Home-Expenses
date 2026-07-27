@@ -12,13 +12,12 @@
 		226EA839812CEA9FF95C9B15 /* MonthLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784C2F8BD854D5A35E0D136D /* MonthLabel.swift */; };
 		2781D4E46D94441A9F39D1AA /* OrderEditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1906DABC2ED758D64C906B6 /* OrderEditViewModel.swift */; };
 		2B308E04F4830BC362A4F5AD /* OrderEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4BC230FF3659DE74BE07AE /* OrderEditView.swift */; };
-		2FB9709484246FFE15B983EA /* CategoryPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FCA4E6529BD724424D065B /* CategoryPalette.swift */; };
 		39001B9FF4E8A15EBB3BE040 /* AnalyticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368D0428FB40607C98067CB1 /* AnalyticsViewModel.swift */; };
 		3AC332DB2F50BA5661A71D56 /* HealthDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBDB14208335B59CB9287406 /* HealthDTO.swift */; };
 		3FCAF5B04419E01C2C98AE97 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38BC8934C6E66B79B2A5A8F9 /* AnalyticsView.swift */; };
 		43A3D08919A4DF20864CE1A8 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC16662B8090A9FBD8592B8 /* RootView.swift */; };
 		4E21731499AD361A45271663 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D28C1D3BA2C00517C61F290A /* APIClient.swift */; };
-		50020E3838DE4082D16DA033 /* AnalyticsChartViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C267A66BCC7C4B716885FB /* AnalyticsChartViews.swift */; };
+		4E717DC52B2E115AFADEC1A7 /* OrderGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8117029709D02045421B9472 /* OrderGroupView.swift */; };
 		5AB8B4A826980B03B1F1380C /* AnalyticsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23A2B97EF6052A72885D5B9 /* AnalyticsDTOs.swift */; };
 		5EF61AE892D58EFF1DDF43F6 /* ReviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07103249136C2F1A1B018FBE /* ReviewViewModel.swift */; };
 		726646729C27B27C30651176 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17985ED8CF7ED039F0F84079 /* ReviewView.swift */; };
@@ -51,8 +50,7 @@
 		0D60391D2F08DD3D4F0E9714 /* ReceiptDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptDTOs.swift; sourceTree = "<group>"; };
 		0E3535833B405892FD335CB8 /* ReceiptFlowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptFlowViewModel.swift; sourceTree = "<group>"; };
 		17985ED8CF7ED039F0F84079 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
-		17C267A66BCC7C4B716885FB /* AnalyticsChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChartViews.swift; sourceTree = "<group>"; };
-		18ED1CF8347D06BE638A5669 /* HomeExpenses.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HomeExpenses.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		18ED1CF8347D06BE638A5669 /* HomeExpenses.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HomeExpenses.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D4BC230FF3659DE74BE07AE /* OrderEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditView.swift; sourceTree = "<group>"; };
 		203D8C4272872FFB1D07E853 /* ParsingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsingViewModel.swift; sourceTree = "<group>"; };
 		30BBDCA99DCE3FBF7BADA690 /* ConfirmDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmDTOs.swift; sourceTree = "<group>"; };
@@ -66,9 +64,9 @@
 		59D4D5FE2DB906A11CC98C7E /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 		5B8194E5F7261B99B34A8673 /* OrderDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderDTOs.swift; sourceTree = "<group>"; };
 		5F9809FA30BF0FD6F08EC2DD /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
-		63FCA4E6529BD724424D065B /* CategoryPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPalette.swift; sourceTree = "<group>"; };
 		784C2F8BD854D5A35E0D136D /* MonthLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthLabel.swift; sourceTree = "<group>"; };
 		7B63B9AF80968D3DFB24C411 /* Money+FormatStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Money+FormatStyle.swift"; sourceTree = "<group>"; };
+		8117029709D02045421B9472 /* OrderGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderGroupView.swift; sourceTree = "<group>"; };
 		812F308DA6F71D3C551E6C12 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 		8C5C6CBEAAAC72C93C53F93A /* AnalyticsChartData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChartData.swift; sourceTree = "<group>"; };
 		93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptFlowView.swift; sourceTree = "<group>"; };
@@ -89,10 +87,10 @@
 		068B2CD3AE2619EB971AE36D /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
-				63FCA4E6529BD724424D065B /* CategoryPalette.swift */,
 				445C031F812957E898B554C5 /* FlexibleDateParser.swift */,
 				7B63B9AF80968D3DFB24C411 /* Money+FormatStyle.swift */,
 				784C2F8BD854D5A35E0D136D /* MonthLabel.swift */,
+				8117029709D02045421B9472 /* OrderGroupView.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -138,7 +136,6 @@
 			isa = PBXGroup;
 			children = (
 				8C5C6CBEAAAC72C93C53F93A /* AnalyticsChartData.swift */,
-				17C267A66BCC7C4B716885FB /* AnalyticsChartViews.swift */,
 				38BC8934C6E66B79B2A5A8F9 /* AnalyticsView.swift */,
 				368D0428FB40607C98067CB1 /* AnalyticsViewModel.swift */,
 			);
@@ -287,8 +284,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 7E24DA5F3C0AB89CED65F7B9 /* Build configuration list for PBXProject "HomeExpenses" */;
 			developmentRegion = en;
@@ -328,7 +323,6 @@
 				4E21731499AD361A45271663 /* APIClient.swift in Sources */,
 				8E50B697C66F9CCE62DC86ED /* APIError.swift in Sources */,
 				0FDC410DA83D03CAF16D0AB5 /* AnalyticsChartData.swift in Sources */,
-				50020E3838DE4082D16DA033 /* AnalyticsChartViews.swift in Sources */,
 				5AB8B4A826980B03B1F1380C /* AnalyticsDTOs.swift in Sources */,
 				3FCAF5B04419E01C2C98AE97 /* AnalyticsView.swift in Sources */,
 				39001B9FF4E8A15EBB3BE040 /* AnalyticsViewModel.swift in Sources */,
@@ -336,7 +330,6 @@
 				B661D087FBE5AC2800FD970C /* CaptureView.swift in Sources */,
 				E238DC1E9FB56D968554107B /* CaptureViewModel.swift in Sources */,
 				CF91A980C075542E723CC3C7 /* CategoryDTO.swift in Sources */,
-				2FB9709484246FFE15B983EA /* CategoryPalette.swift in Sources */,
 				E2B58156F98161F6C00AC0F1 /* ConfirmDTOs.swift in Sources */,
 				9D0343D582BD7FB31088DAB2 /* FlexibleDateParser.swift in Sources */,
 				3AC332DB2F50BA5661A71D56 /* HealthDTO.swift in Sources */,
@@ -347,6 +340,7 @@
 				1616CCEE332B84B1F8907760 /* OrderDTOs.swift in Sources */,
 				2B308E04F4830BC362A4F5AD /* OrderEditView.swift in Sources */,
 				2781D4E46D94441A9F39D1AA /* OrderEditViewModel.swift in Sources */,
+				4E717DC52B2E115AFADEC1A7 /* OrderGroupView.swift in Sources */,
 				D082420684C993CFE19C48E0 /* OrdersView.swift in Sources */,
 				FF7249C59F2DEC43947F0D6D /* OrdersViewModel.swift in Sources */,
 				D1E0AC6B8035DA874DA34C6B /* ParsingView.swift in Sources */,
@@ -372,6 +366,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = JH2RL79XCP;
 				INFOPLIST_FILE = HomeExpenses/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -457,6 +452,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = JH2RL79XCP;
 				INFOPLIST_FILE = HomeExpenses/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

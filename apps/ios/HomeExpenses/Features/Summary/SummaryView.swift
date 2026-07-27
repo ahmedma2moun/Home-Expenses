@@ -162,37 +162,10 @@ struct SummaryView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(page.orders) { group in
-                    orderGroup(group)
+                    OrderGroupView(group: group)
                 }
             }
         }
-    }
-
-    private func orderGroup(_ group: CategoryOrderGroupDTO) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(group.merchant)
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if let displayDate = group.displayDate {
-                    Text(displayDate.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            ForEach(group.items) { item in
-                HStack {
-                    Text(item.name)
-                        .font(.footnote)
-                    Spacer()
-                    Text(item.lineTotal.value.formatted(currencyCode: group.currency))
-                        .font(.footnote)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 

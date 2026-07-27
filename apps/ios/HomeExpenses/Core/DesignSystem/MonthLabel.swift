@@ -31,8 +31,9 @@ enum MonthLabel {
         date.formatted(.dateTime.month(.wide).year())
     }
 
-    /// Short axis-tick form of a wire label, e.g. "2026-07" → "Jul". Falls back to the label itself
-    /// if it doesn't parse, so a malformed value degrades to something legible rather than crashing.
+    /// Short abbreviated form of a wire label, e.g. "2026-07" → "Jul". Falls back to the label
+    /// itself if it doesn't parse, so a malformed value degrades to something legible rather than
+    /// crashing.
     static func abbreviatedMonth(fromLabel label: String) -> String {
         guard let date = parse(label) else { return label }
         return date.formatted(.dateTime.month(.abbreviated))

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Analytics tab: a category pie chart for a chosen month, and a per-category spending trend over
-/// the last 6/12 months (PROJECT_SPEC.md §10, screen 6; BR-5).
+/// Analytics tab: a month-over-month comparison of every category's spend between two consecutive
+/// months, each expandable into the items bought that month (PROJECT_SPEC.md §10, screen 6; BR-5).
 struct AnalyticsView: View {
     @StateObject private var viewModel = AnalyticsViewModel()
 
@@ -16,131 +16,183 @@ struct AnalyticsView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let errorMessage = viewModel.errorMessage, viewModel.monthSummary == nil, viewModel.trends == nil {
-            ContentUnavailableView {
-                Label("Couldn't load analytics", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(errorMessage)
-            } actions: {
-                Button("Retry") { Task { await viewModel.load() } }
-            }
-        } else if viewModel.isLoading && viewModel.monthSummary == nil && viewModel.trends == nil {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    // A section can fail without the other — e.g. the month summary loaded fine
-                    // but the trends call errored. Surface it here rather than only when both fail.
-                    if let errorMessage = viewModel.errorMessage {
-                        errorBanner(errorMessage)
-                    }
-                    pieSection
-                    trendSection
+        VStack(spacing: 0) {
+            monthPicker
+
+            if let errorMessage = viewModel.errorMessage, viewModel.trendCurrentSummary == nil {
+                ContentUnavailableView {
+                    Label("Couldn't load analytics", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("Retry") { Task { await viewModel.load() } }
                 }
-                .padding(.vertical)
+            } else if viewModel.isLoading && viewModel.trendCurrentSummary == nil {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                comparisonList
             }
         }
-    }
-
-    private func errorBanner(_ message: String) -> some View {
-        Label(message, systemImage: "exclamationmark.triangle")
-            .font(.footnote)
-            .foregroundStyle(.orange)
-            .padding(.horizontal)
     }
 
     private var monthPicker: some View {
         HStack {
             Button {
-                viewModel.shiftMonth(by: -1)
+                viewModel.shiftTrendMonth(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
             }
             .accessibilityLabel("Previous month")
             Spacer()
-            Text(MonthLabel.displayName(viewModel.selectedMonth))
-                .font(.headline)
-            if viewModel.isLoadingMonth {
+            Text(viewModel.trendRangeLabel).font(.headline)
+            if viewModel.isLoadingTrend {
                 ProgressView().padding(.leading, 4)
             }
             Spacer()
             Button {
-                viewModel.shiftMonth(by: 1)
+                viewModel.shiftTrendMonth(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
             }
             .accessibilityLabel("Next month")
         }
-        .padding(.horizontal)
+        .padding()
     }
 
-    @ViewBuilder
-    private var pieSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("By category")
-                .font(.title3.bold())
-                .padding(.horizontal)
-            monthPicker
-            if viewModel.pieSlices.isEmpty {
-                ContentUnavailableView(
-                    "No spending yet",
-                    systemImage: "chart.pie",
-                    description: Text("Add a receipt to see this month's breakdown.")
-                )
-                .frame(height: 200)
+    private var comparisonList: some View {
+        List {
+            if let errorMessage = viewModel.errorMessage, viewModel.trendCurrentSummary != nil {
+                // A stale pair can still be showing while a later fetch fails — surface the error
+                // without blanking out the data that's already on screen.
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+
+            if viewModel.comparisonRows.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "Nothing to compare yet",
+                        systemImage: "arrow.left.arrow.right",
+                        description: Text("The comparison fills in once you log spending for these months.")
+                    )
+                }
             } else {
-                CategoryPieChart(slices: viewModel.pieSlices, total: viewModel.monthTotal)
-                    .frame(height: 240)
-                    .padding(.horizontal)
-                CategoryLegend(slices: viewModel.pieSlices)
-                    .padding(.horizontal)
+                Section("Spending trend") {
+                    ForEach(viewModel.comparisonRows) { row in
+                        DisclosureGroup(isExpanded: expansionBinding(for: row.id)) {
+                            itemsDetail(for: row)
+                        } label: {
+                            comparisonRowLabel(row)
+                        }
+                    }
+                }
             }
         }
+        .listStyle(.insetGrouped)
     }
 
-    @ViewBuilder
-    private var trendSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Spending trend")
-                    .font(.title3.bold())
-                if viewModel.isLoadingTrends {
-                    ProgressView().padding(.leading, 4)
-                }
-                Spacer()
-                Picker("Window", selection: trendsWindowBinding) {
-                    Text("6 mo").tag(6)
-                    Text("12 mo").tag(12)
-                }
-                .pickerStyle(.segmented)
-                .frame(minWidth: 150, idealWidth: 150, maxWidth: 200)
-            }
-            .padding(.horizontal)
-
-            if viewModel.trendPoints.isEmpty {
-                ContentUnavailableView(
-                    "Not enough history yet",
-                    systemImage: "chart.line.uptrend.xyaxis",
-                    description: Text("The trend fills in as you log more months of spending.")
-                )
-                .frame(height: 200)
-            } else {
-                CategoryTrendChart(
-                    points: viewModel.trendPoints,
-                    months: viewModel.trends?.months ?? [],
-                    colorScale: viewModel.trendColorScale
-                )
-                .frame(height: 260)
-                .padding(.horizontal)
-            }
-        }
-    }
-
-    private var trendsWindowBinding: Binding<Int> {
+    private func expansionBinding(for categoryId: String) -> Binding<Bool> {
         Binding(
-            get: { viewModel.trendsWindowMonths },
-            set: { viewModel.setTrendsWindow(months: $0) }
+            get: { viewModel.expandedCategoryId == categoryId },
+            set: { _ in viewModel.toggleCategoryItems(categoryId) }
         )
+    }
+
+    private func comparisonRowLabel(_ row: CategoryComparisonRow) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(row.emoji)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.name)
+                HStack(spacing: 4) {
+                    Text("\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: "EGP"))")
+                    Text("→")
+                    Text("\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: "EGP"))")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+            changeBadge(for: row)
+        }
+        // `children: .combine` would read the "→" glyph literally and drop the up/down meaning,
+        // which lives only in the badge's colour and SF Symbol — so this is described explicitly.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.name)
+        .accessibilityValue(accessibilityValue(for: row))
+    }
+
+    private func accessibilityValue(for row: CategoryComparisonRow) -> String {
+        let previousText = "\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: "EGP"))"
+        let currentText = "\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: "EGP"))"
+        guard let ratio = row.changeRatio else {
+            let isNew = row.previousAmount == 0 && row.currentAmount > 0
+            return isNew ? "\(previousText), \(currentText), new category" : "\(previousText), \(currentText)"
+        }
+        let direction = ratio >= 0 ? "up" : "down"
+        let percentText = abs(ratio).formatted(.percent.precision(.fractionLength(1)))
+        return "\(previousText), \(currentText), \(direction) \(percentText)"
+    }
+
+    /// Spending going up is drawn as a regression (red), going down as an improvement (green) —
+    /// the reverse of a typical stock-style trend badge, since this app tracks expenses.
+    @ViewBuilder
+    private func changeBadge(for row: CategoryComparisonRow) -> some View {
+        if let ratio = row.changeRatio {
+            let isIncrease = ratio >= 0
+            Label(
+                abs(ratio).formatted(.percent.precision(.fractionLength(1))),
+                systemImage: isIncrease ? "arrow.up" : "arrow.down"
+            )
+            .font(.caption.bold())
+            .foregroundStyle(isIncrease ? .red : .green)
+        } else if row.previousAmount == 0 && row.currentAmount > 0 {
+            Text("New")
+                .font(.caption.bold())
+                .foregroundStyle(.blue)
+        }
+    }
+
+    /// The expanded body: items bought in this category in each of the two compared months,
+    /// grouped by the order they were bought in — mirrors `GET /orders/by-category`, called once
+    /// per month.
+    @ViewBuilder
+    private func itemsDetail(for row: CategoryComparisonRow) -> some View {
+        if viewModel.loadingItemsCategoryId == row.id {
+            ProgressView()
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 8)
+        } else if let error = viewModel.itemsErrorsByCategoryId[row.id] {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button("Retry") { viewModel.retryCategoryItems(row.id) }
+                    .font(.footnote)
+            }
+        } else {
+            monthItems(label: viewModel.trendPreviousMonthLabel, page: viewModel.previousMonthItems[row.id])
+            monthItems(label: viewModel.trendCurrentMonthLabel, page: viewModel.currentMonthItems[row.id])
+        }
+    }
+
+    @ViewBuilder
+    private func monthItems(label: String, page: CategoryItemsPageDTO?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if let page, !page.orders.isEmpty {
+                ForEach(page.orders) { group in
+                    OrderGroupView(group: group)
+                }
+            } else {
+                Text("No items.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.top, 4)
     }
 }
 
