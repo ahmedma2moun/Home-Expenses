@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isPeriodMonth, suggestPeriodMonth, toPeriodMonth } from "./period";
+import {
+  formatMonthLabel,
+  isPeriodMonth,
+  parseMonthLabel,
+  suggestPeriodMonth,
+  toPeriodMonth,
+} from "./period";
 
 describe("toPeriodMonth", () => {
   const cases: { name: string; input: Date; expected: string }[] = [
@@ -45,6 +51,25 @@ describe("suggestPeriodMonth", () => {
 
   it("falls back to the current month when no receipt date was extracted", () => {
     expect(suggestPeriodMonth(null, now).toISOString()).toBe("2026-07-01T00:00:00.000Z");
+  });
+});
+
+describe("parseMonthLabel", () => {
+  const cases: { label: string; expected: string }[] = [
+    { label: "2026-07", expected: "2026-07-01T00:00:00.000Z" },
+    { label: "2099-12", expected: "2099-12-01T00:00:00.000Z" },
+    { label: "1999-01", expected: "1999-01-01T00:00:00.000Z" },
+  ];
+
+  it.each(cases)(
+    "parses $label to the first of the month at UTC midnight",
+    ({ label, expected }) => {
+      expect(parseMonthLabel(label).toISOString()).toBe(expected);
+    },
+  );
+
+  it("round-trips through formatMonthLabel", () => {
+    expect(formatMonthLabel(parseMonthLabel("2026-12"))).toBe("2026-12");
   });
 });
 
