@@ -35,6 +35,7 @@
 		B1000000000000000000A0D3 /* OrdersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D3 /* OrdersViewModel.swift */; };
 		B1000000000000000000A0D4 /* OrderEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D4 /* OrderEditView.swift */; };
 		B1000000000000000000A0D5 /* OrderEditViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D5 /* OrderEditViewModel.swift */; };
+		B1000000000000000000A0D6 /* ReceiptFlowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000A0D6 /* ReceiptFlowViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +69,7 @@
 		A1000000000000000000A0D3 /* OrdersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersViewModel.swift; sourceTree = "<group>"; };
 		A1000000000000000000A0D4 /* OrderEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditView.swift; sourceTree = "<group>"; };
 		A1000000000000000000A0D5 /* OrderEditViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditViewModel.swift; sourceTree = "<group>"; };
+		A1000000000000000000A0D6 /* ReceiptFlowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptFlowViewModel.swift; sourceTree = "<group>"; };
 		FE0AF011BDDE08B265B426E8 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -107,6 +109,7 @@
 				812F308DA6F71D3C551E6C12 /* CaptureView.swift */,
 				59D4D5FE2DB906A11CC98C7E /* CaptureViewModel.swift */,
 				93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */,
+				A1000000000000000000A0D6 /* ReceiptFlowViewModel.swift */,
 			);
 			path = Capture;
 			sourceTree = "<group>";
@@ -306,6 +309,7 @@
 				E31F4191978AF2478C50C160 /* ParsingViewModel.swift in Sources */,
 				74E4710CEF548D36F56A9965 /* ReceiptDTOs.swift in Sources */,
 				F911AFD3E763A92DC1748DE3 /* ReceiptFlowView.swift in Sources */,
+				B1000000000000000000A0D6 /* ReceiptFlowViewModel.swift in Sources */,
 				726646729C27B27C30651176 /* ReviewView.swift in Sources */,
 				5EF61AE892D58EFF1DDF43F6 /* ReviewViewModel.swift in Sources */,
 				43A3D08919A4DF20864CE1A8 /* RootView.swift in Sources */,
