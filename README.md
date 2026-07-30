@@ -10,24 +10,42 @@ shows per-category totals, trends, and an AI comparison between any two months.
   `apps/ios/README.md`).
 
 The AI layer sits behind a **provider interface** — the default and only configured provider is
-**Google Gemini**, with **Claude** available as a drop-in paid provider. See **`AI_PROVIDER.md`**
-for the design and trade-offs.
+**Google Gemini**, with **Claude (Anthropic)** available as a drop-in paid provider. Only these two
+providers are actually implemented in code; the self-hosted Ollama option described in
+`AI_PROVIDER.md` is a documented future option, not built. See **`AI_PROVIDER.md`** for the design
+and trade-offs.
 
-See **`PROJECT_SPEC.md`** for the full spec and **`AGENTS_AND_SKILLS.md`** for the code-quality
-agents, skills, and CI gates.
+See **`PROJECT_SPEC.md`** for the original spec and **`AGENTS_AND_SKILLS.md`** for the code-quality
+agents, skills, and CI gates. **PROJECT_SPEC.md describes the original vision and has drifted from
+what's actually built in several places (auth, image upload, iOS screens) — this README and
+`docs/api.md` describe current reality; where they disagree with PROJECT_SPEC.md, trust these.**
 
-## Status (M0 — foundations)
+## Status (M1–M4 backend, no auth yet)
 
-- **Backend:** Prisma schema + seed taxonomy + initial migration, `/api/v1` route handlers wired
-  for auth/envelope but stubbed `501` except `GET /health` (live: DB + configured AI provider key
-  check). The AI provider layer (`lib/ai/`) is wired for Gemini (default) and Claude, with
-  timeout/retry/telemetry — no extraction/comparison prompt logic yet. Verified end to end against
-  a throwaway local Postgres: migration applies, seed runs, drift check is clean.
-- **iOS:** source tree matches PROJECT_SPEC.md §2 (App/Features/Core/Resources) with a minimal
-  APIClient, DTOs, and placeholder screens. Type-checks clean under Swift 6 strict concurrency.
-  No Xcode project file yet.
-- **Not done yet:** CI workflows (`.github/workflows/*`), the web dashboard, extraction/comparison
-  logic, and everything past M0 in PROJECT_SPEC.md §15.
+- **Backend:** almost all of `/api/v1` is real and working, not stubbed — receipts upload/parse/
+  confirm/reparse/discard, orders list/detail/edit/delete + category drill-down, categories, and
+  month/trend analytics all read and write real data. Still stubbed `501`: `POST /orders` (manual
+  entry), `POST /analytics/compare` (AI month-vs-month narrative), `POST /auth/apple`,
+  `POST /auth/refresh`. See `docs/api.md` for the full, accurate route table.
+  - **No authentication is implemented.** `lib/auth/` is an empty directory and both auth routes are
+    stubs. Every request is resolved to one hardcoded seeded user (`lib/api/devUser.ts`,
+    `DEV_USER_ID`) regardless of any `Authorization` header — there is nothing to bypass because
+    nothing checks it yet. Don't point this backend at the public internet with real data.
+  - **No blob storage.** Receipt images are sent as base64 inside the `POST /receipts` /
+    `POST /receipts/:id/reparse` JSON body, used once in memory for the vision call, and never
+    persisted — `ReceiptImage` only stores position/mimeType/byte-count bookkeeping.
+    `BLOB_READ_WRITE_TOKEN` and the direct-to-blob signed-upload flow in PROJECT_SPEC.md are not
+    implemented (`/uploads/token` doesn't exist).
+  - **No rate limiting.** `RATE_LIMIT_PARSES_PER_DAY` is not read anywhere in the code yet.
+- **iOS:** a real Xcode project (`apps/ios/HomeExpenses.xcodeproj`, generated via `xcodegen` from
+  `apps/ios/project.yml`) with three tabs — **Home** (month summary + category drill-down),
+  **Orders** (month-paged list, edit, delete), **Analytics** (month-over-month category comparison)
+  — plus a Capture → Parsing → Review modal flow reached from Home's "+" button. No Settings tab,
+  no Swift Charts trend view, no AI comparison UI, no SwiftData offline cache, and no auth — the app
+  talks to the single dev user the backend currently resolves everything to.
+- **Not done yet:** CI workflows (there is no `.github/` directory in this repo at all), the web
+  dashboard UI, Sign in with Apple (either side), blob storage, rate limiting, the AI month
+  comparison feature, and iOS Settings/offline support.
 
 ---
 
@@ -130,13 +148,15 @@ npm run seed               # seeds the 19 categories (see PROJECT_SPEC.md §6)
 
 ---
 
-## 4. Provision blob storage (receipt images)
+## 4. Blob storage — not currently needed
 
-Receipt images are uploaded directly from the client to private blob storage via short-lived signed
-tokens — they don't pass through the API function body.
-
-**Vercel Blob (default):** in the Vercel dashboard, **Storage → Create → Blob**, then copy the
-`BLOB_READ_WRITE_TOKEN`. (S3 or Cloudflare R2 also work if you'd rather; swap the storage adapter.)
+PROJECT_SPEC.md's original design uploads receipt images directly from the client to blob storage
+via a signed token, so they never pass through the API function body. **That path isn't built.**
+Today, receipt images travel as base64 inside the `POST /api/v1/receipts` JSON body, are used once
+in memory for the vision call, and are never persisted server-side (`ReceiptImage` rows only keep
+position/mimeType/byte-count). There is no `BLOB_READ_WRITE_TOKEN` read anywhere in the code and no
+`/uploads/token` route — you can skip provisioning blob storage entirely for local dev or a
+from-scratch deploy. If the direct-to-blob flow gets built later, this section should come back.
 
 ---
 
@@ -148,7 +168,7 @@ Copy the example file and fill it in:
 cp .env.example .env.local
 ```
 
-`.env.local` (never committed):
+`.env.local` (never committed) — this mirrors `apps/web/.env.example`, the actual source of truth:
 
 ```bash
 # Database
@@ -157,31 +177,26 @@ DIRECT_URL="postgres://.../db?sslmode=require"               # direct, for migra
 SHADOW_DATABASE_URL="postgres://.../db_shadow?sslmode=require"  # prisma migrate dev + CI drift check
 
 # AI provider — server only, NEVER in the iOS app. See AI_PROVIDER.md.
-EXTRACTION_PROVIDER="gemini"                 # gemini | anthropic
+EXTRACTION_PROVIDER="gemini"                 # gemini | anthropic (only these two are implemented)
 ANALYSIS_PROVIDER="gemini"
 EXTRACTION_MODEL="gemini-3.5-flash"          # vision model for receipts
 ANALYSIS_MODEL="gemini-3.5-flash"            # text model for month-vs-month
 GEMINI_API_KEY="AIza..."                     # if any provider is 'gemini'
 # ANTHROPIC_API_KEY="sk-ant-..."             # if any provider is 'anthropic'
 
-# Blob storage
-BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."
-
-# Auth (Sign in with Apple → app JWT)
-JWT_SECRET="<openssl rand -base64 32>"
-JWT_REFRESH_SECRET="<openssl rand -base64 32>"
-APPLE_TEAM_ID="..."
-APPLE_KEY_ID="..."
-APPLE_CLIENT_ID="com.yourorg.homeexpenses"   # your Services ID / bundle id
-APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
-
 # Guardrails
-RATE_LIMIT_PARSES_PER_DAY="50"               # cap AI extraction calls / spend per user
+RATE_LIMIT_PARSES_PER_DAY="50"               # declared for future use — not yet enforced in code
+
+# Deploy smoke test — POST /api/v1/echo, gated by this shared secret, not user auth.
+# Leave unset to disable that endpoint entirely. See docs/deployment.md §9.
+DEBUG_API_TOKEN="<openssl rand -base64 32>"
 ```
 
-Generate the JWT secrets with `openssl rand -base64 32`. The provider and model are env-driven, so you
-can switch between Gemini and Claude without a code change — set only the credential the provider you
-chose actually needs. Model values per provider are listed in `AI_PROVIDER.md` §5.
+There is no blob storage variable and no JWT/Apple auth variables to set — those parts of the
+original design (§8 auth, direct-to-blob upload) aren't implemented yet, so nothing reads them. The
+provider and model are env-driven, so you can switch between Gemini and Claude without a code
+change — set only the credential the provider you chose actually needs. Model values per provider
+are listed in `AI_PROVIDER.md` §5.
 
 ---
 
@@ -216,23 +231,31 @@ Before you call anything done, run the one verification pipeline (the same one C
 4. Framework preset auto-detects as **Next.js**. Leave build/output defaults.
 5. Add **every** variable from §5 under **Settings → Environment Variables**, for both the
    **Production** and **Preview** environments. Use a **different AI provider key** (e.g.
-   `GEMINI_API_KEY`) per environment so you can revoke independently. If you created the DB/Blob through
+   `GEMINI_API_KEY`) per environment so you can revoke independently. If you created the DB through
    Vercel Storage, those variables are injected for you.
 6. **Deploy.**
 
 ### Migrations on deploy
 
-Migrations run as a **pre-deploy step in CI**, never at runtime and never from a serverless function.
-The build command applies pending migrations before building:
+Migrations run as a **pre-build step of the Vercel build itself**, never at runtime and never from
+a serverless function — there is no separate CI workflow doing this (see the CI caveat below).
+`apps/web/package.json`'s `vercel-build` script is:
 
 ```
-prisma migrate deploy && next build
+prisma generate && prisma migrate deploy && npm run seed && next build
 ```
 
-Set that as the **Build Command** in Vercel (or keep it in the CI workflow — see
-`.github/workflows/web-ci.yml`). Every migration must be safe with the *previous* app version still
-running, because Vercel serves old and new instances during a rollout and old iOS clients live
-forever. The expand → backfill → contract procedure in the `db-migration` skill enforces this.
+That's also the **Build Command** Vercel runs (set in `apps/web/vercel.json`). The seed step is why
+a from-scratch deploy already has its categories on first boot — see `docs/deployment.md` §7 for
+when you'd still want to run it by hand. Every migration must be safe with the *previous* app
+version still running, because Vercel serves old and new instances during a rollout and old iOS
+clients live forever. The expand → backfill → contract procedure in the `db-migration` skill
+enforces this.
+
+> **No CI workflows exist in this repo yet** — there is no `.github/` directory at all. Typecheck,
+> lint, tests, the migration-drift check, and the build only run when you invoke
+> `./scripts/verify.sh` yourself (or an agent does). Treat any doc passage that mentions
+> `web-ci.yml`/`ios-ci.yml` as aspirational until those workflow files actually exist.
 
 ### How environments map
 
@@ -248,16 +271,21 @@ provider reachability.
 
 ## 8. Build and run the iOS app
 
-1. Open `apps/ios/HomeExpenses.xcodeproj` in Xcode 16+.
-2. Set `API_BASE_URL` in the xcconfig to your backend (local, Preview, or Production URL).
-3. Configure **Sign in with Apple**: add the capability, and register the Services ID / key that match
-   the `APPLE_*` backend env vars.
-4. Select a simulator or device and **Run**.
-5. Distribution to testers is via **TestFlight** (Fastlane lane on tagged releases — see
-   `.github/workflows/ios-ci.yml`).
+The Xcode project is generated, not hand-authored: `apps/ios/project.yml` (xcodegen) describes the
+`HomeExpenses` target, and `apps/ios/HomeExpenses.xcodeproj` is the checked-in output. If you change
+`project.yml`, regenerate with `xcodegen generate` from `apps/ios/` before opening Xcode again.
 
-> The iOS app never contains the AI provider key or any secret. It authenticates with Sign in with
-> Apple and calls only your backend.
+1. Open `apps/ios/HomeExpenses.xcodeproj` in Xcode 16+.
+2. Set `API_BASE_URL` in `Resources/Debug.xcconfig` / `Release.xcconfig` to your backend (local,
+   Preview, or Production URL).
+3. Select a simulator or device and **Run**.
+4. Distribution to testers via TestFlight isn't wired up yet — there's no Fastlane lane or CI
+   workflow in this repo (§7's CI caveat applies here too).
+
+> There's no sign-in of any kind yet on either side. The app calls the backend directly, and the
+> backend currently resolves every request to a single seeded dev user (see the Status section
+> above) — everyone running the app locally shares that one user's data. The iOS app never contains
+> the AI provider key or any secret regardless: it only ever reads `API_BASE_URL` from its xcconfig.
 
 ---
 
@@ -267,10 +295,12 @@ provider reachability.
   for training — receipts are PII, so for anything real use a **paid** Gemini or Claude tier (paid
   inputs aren't used for training). See `AI_PROVIDER.md` §3.
 - The biggest cost/quota lever is **image size** — the client downscales receipts before upload.
-- `RATE_LIMIT_PARSES_PER_DAY` caps extraction calls per user; the month-comparison endpoint caches
-  results so re-opening a comparison costs nothing and stays within free-tier limits.
-- Token usage is logged per call (when the provider reports it); an internal usage view is at
-  `/api/v1/admin/usage`.
+- `RATE_LIMIT_PARSES_PER_DAY` is declared in `.env.example` but **not enforced by any code yet** —
+  don't rely on it to cap spend. The month-comparison endpoint (`POST /analytics/compare`) that
+  would cache narrative results is itself still a `501` stub, so there's no comparison cost to cache
+  against either.
+- Token usage (`inputTokens`/`outputTokens`/`latencyMs`) is persisted per receipt on the `Receipt`
+  row when the provider reports it. There is no `/api/v1/admin/usage` endpoint — that's aspirational.
 
 ---
 

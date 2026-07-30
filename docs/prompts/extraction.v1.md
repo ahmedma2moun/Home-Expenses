@@ -1,8 +1,9 @@
 # Extraction prompt — v1
 
-**Status:** not yet wired into code (ships in M1, `lib/ai/*`). Recorded here first so the
-prompt is versioned from the start, per the `prompt-change` skill. Provider-agnostic — see
-`AI_PROVIDER.md`; the default provider is Gemini.
+**Status:** live — wired into `lib/services/extraction.ts` (`EXTRACTION_SYSTEM_PROMPT_V1`) and
+called from `POST /receipts` and `POST /receipts/:id/reparse`. Keep this file and that constant in
+sync per the `prompt-change` skill. Provider-agnostic — see `AI_PROVIDER.md`; the default provider
+is Gemini.
 
 **Hypothesis:** first version — no prior baseline to improve on. Establishes the extraction
 contract in PROJECT_SPEC.md §7.2 (now served through the provider interface in `AI_PROVIDER.md`).
@@ -60,4 +61,6 @@ request to whichever provider is configured (`ExtractionProvider.extract`, `lib/
 
 ## Eval baseline
 
-None yet — `fixtures/receipts/` is empty until M1. See `fixtures/baseline.json`.
+None yet — `apps/web/fixtures/receipts/` is still empty even though the prompt is live in code; no
+one has run `npm run eval:extraction` against real fixtures yet. See `apps/web/fixtures/baseline.json`
+(currently all-`null` placeholders) and the `prompt-eval-runner` agent.

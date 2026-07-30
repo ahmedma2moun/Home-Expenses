@@ -5,6 +5,26 @@
 
 ---
 
+## Implementation status — read this first
+
+This file is the **original vision and scaffolding spec**. The build has since diverged from it in
+several places, mostly to move faster before auth/blob-storage/AI-comparison were needed. The
+sections below are annotated where they've drifted, but the accurate, current pictures live
+elsewhere — trust these over this file when they disagree:
+
+- **`README.md`**'s Status section — what's actually built, backend and iOS.
+- **`docs/api.md`** — the real route table and request/response shapes (§9 below is stale).
+- **`AI_PROVIDER.md`** — the AI layer already documents itself as superseding this file's §7.
+
+Headline deviations: **there is no authentication** (§8) — every request resolves to one hardcoded
+seeded user; **there is no blob storage** — receipt images travel as base64 in the request body
+instead of the signed-upload flow in §2/§9; the AI **month-comparison feature doesn't exist**
+(`POST /analytics/compare` is a stub, no `MonthComparison` logic is implemented); and the iOS app's
+actual screens (§10) differ from what's below — no Settings screen, no Swift Charts trend view, no
+offline/SwiftData cache.
+
+---
+
 ## 1. Product Overview
 
 A personal/family expense tracker built around **receipt screenshots**. The user photographs or
@@ -56,39 +76,41 @@ ever receives blob **URLs/keys**.
 ```
 home-expenses/
 ├── apps/
-│   ├── web/                      # Next.js 15 (App Router) — web UI + API. Vercel root dir.
+│   ├── web/                      # Next.js 15 (App Router) — API only today. Vercel root dir.
 │   │   ├── app/
-│   │   │   ├── (dashboard)/      # web pages
-│   │   │   └── api/v1/...        # route handlers (the mobile API)
+│   │   │   └── api/v1/...        # route handlers (the mobile API) — no (dashboard)/ web UI yet
 │   │   ├── lib/
-│   │   │   ├── claude/           # Claude client, prompts, schemas, parsers
-│   │   │   ├── db/               # prisma client, queries
-│   │   │   └── auth/
+│   │   │   ├── ai/                # provider interface + gemini/anthropic subfolders (renamed
+│   │   │   │                      # from the originally-planned lib/claude/ — see AI_PROVIDER.md)
+│   │   │   ├── api/               # envelope, withApi, Zod schemas — not in the original plan
+│   │   │   ├── services/          # business logic (receipts, orders, analytics, ...) — new layer
+│   │   │   ├── db/                # prisma client, queries
+│   │   │   └── auth/              # exists, but is empty — no auth is implemented (§8)
 │   │   ├── prisma/schema.prisma
 │   │   └── vercel.json
-│   └── ios/                      # Xcode project — HomeExpenses
+│   └── ios/                      # Xcode project — HomeExpenses (xcodegen-generated, checked in)
 │       └── HomeExpenses/
-│           ├── App/
-│           ├── Features/{Capture,Review,Orders,Analytics,Settings}
-│           ├── Core/{Networking,Persistence,DesignSystem}
-│           └── Resources/
+│           ├── App/                                    # RootView: Home/Orders/Analytics tabs
+│           ├── Features/{Capture,Parsing,Review,Orders,Analytics,Summary}   # see §10 — no Settings
+│           └── Core/{Networking,DesignSystem,Media}     # no Persistence/ — no offline cache yet
 ├── docs/
-│   ├── api.md                    # generated/maintained OpenAPI + examples
-│   └── prompts/                  # versioned Claude prompt files
+│   ├── api.md                    # the accurate, current API reference — read this over §9 below
+│   └── prompts/                  # versioned AI prompt files (provider-agnostic)
 ├── .claude/
 │   ├── settings.json             # hooks + permission denies
 │   ├── agents/                   # subagents — see AGENTS_AND_SKILLS.md
 │   └── skills/                   # skills — see AGENTS_AND_SKILLS.md
 ├── scripts/
-│   ├── verify.sh                 # the one verification pipeline (humans, agents, CI)
+│   ├── verify.sh                 # the one verification pipeline (humans, agents; no CI yet)
 │   ├── guard-db-commands.sh
 │   └── format-changed.sh
-├── .github/workflows/
-│   ├── web-ci.yml
-│   └── ios-ci.yml
 ├── CLAUDE.md                     # standing engineering rules
 └── README.md
 ```
+
+**No `.github/workflows/` directory exists in this repo** — `web-ci.yml`/`ios-ci.yml` were planned
+but never created. `scripts/verify.sh` is the only place the verification pipeline runs today; it
+has to be invoked by hand (or by an agent), not triggered by CI.
 
 ---
 
@@ -227,16 +249,17 @@ model Receipt {
 model ReceiptImage {
   id        String   @id @default(cuid())
   receiptId String
-  blobKey   String
   position  Int
-  width     Int?
-  height    Int?
   bytes     Int?
   mimeType  String
 
   receipt   Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
   @@unique([receiptId, position])
 }
+// `blobKey`, `width`, `height` were dropped (migration
+// 20260727010000_drop_receipt_image_blob_key) — there's no blob storage (§2/§9 note), so this row
+// is bookkeeping only: position, mimeType, and a computed byte count. The actual image bytes are
+// never persisted; they're used once in memory for the extraction call and discarded.
 
 model Order {
   id            String      @id @default(cuid())
@@ -458,6 +481,12 @@ Reference: https://docs.claude.com/en/api/overview
 
 ## 8. Authentication & Authorization
 
+> **Not implemented.** `POST /auth/apple` and `POST /auth/refresh` are both `501` stubs, `lib/auth/`
+> is an empty directory, and every backend route resolves `userId` to one hardcoded seeded user
+> (`lib/api/devUser.ts`'s `DEV_USER_ID`) regardless of any request header. The iOS app has no
+> Sign in with Apple, JWT storage, Keychain, or refresh logic either. What follows is the design to
+> build against, not current behavior — see README.md's Status section.
+
 - **Sign in with Apple** on iOS → identity token posted to `POST /api/v1/auth/apple`.
 - Backend verifies the token against Apple's public keys, upserts `User` by `sub`, and returns an
   app JWT (15 min access) + opaque refresh token (30 days, rotating, stored hashed).
@@ -469,15 +498,23 @@ Reference: https://docs.claude.com/en/api/overview
 
 ## 9. API Contract (`/api/v1`)
 
+> **This table is the original design and no longer matches the implemented API in several rows —
+> see `docs/api.md` for the accurate, current contract.** In short: `/uploads/token` was never
+> built (there's no blob storage — images ride as base64 in the `POST /receipts` body instead, see
+> §2/§8); `/auth/*` and `POST /analytics/compare`/`POST /orders` (manual entry) are still `501`
+> stubs; every other row below is real and live, including several (`GET /categories`,
+> `GET /analytics/month/:month`, the whole `/receipts/*` family) that this table doesn't do justice
+> to with full request/response shapes — `docs/api.md` has those.
+
 All responses envelope: `{ "data": … }` or `{ "error": { "code", "message", "details?" } }`.
 Money fields are **strings**. Dates are ISO-8601. Months are `"YYYY-MM"`.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/auth/apple` | Exchange Apple identity token → JWT pair |
-| `POST` | `/auth/refresh` | Rotate refresh token |
-| `POST` | `/uploads/token` | Body: `{ files: [{ mimeType, bytes }] }` → signed upload targets + blob keys |
-| `POST` | `/receipts` | Body: `{ clientRef, images: [{ blobKey, position, mimeType }] }` → creates receipt, starts parse |
+| `POST` | `/auth/apple` | Exchange Apple identity token → JWT pair — **stub, not implemented** |
+| `POST` | `/auth/refresh` | Rotate refresh token — **stub, not implemented** |
+| ~~`POST`~~ | ~~`/uploads/token`~~ | **Not implemented — no blob storage exists.** Images are sent as base64 directly in the `POST /receipts` body instead (see §2/§8, `docs/api.md`) |
+| `POST` | `/receipts` | Body: `{ clientRef, images: [{ base64, position, mimeType }] }` → creates receipt, starts parse. **Live.** |
 | `GET` | `/receipts/:id` | Poll status + `parsedPayload` when `PARSED` |
 | `POST` | `/receipts/:id/reparse` | Retry a `FAILED` parse (counts against quota) |
 | `POST` | `/receipts/:id/confirm` | Body = final user-edited order + items + `periodMonth` → creates `Order` |
@@ -508,6 +545,18 @@ duplicate orders from retries on poor connectivity.
 
 **Target:** iOS 17+, SwiftUI, MVVM, `async/await`, no third-party networking dependency (URLSession).
 
+> **Current build vs. this spec:** the app has three tabs — **Home** (`Features/Summary`, not a
+> separate top-level screen split out the way §2 implied), **Orders**, **Analytics** — plus
+> Capture → Parsing → Review as a modal flow launched from Home's "+" button, not tabs of their
+> own. No **Settings** screen exists at all. **Analytics** is a month-over-month category comparison
+> with a drill-down, not the "totals, category bars, Swift Charts trend + AI compare sheet" screen
+> described below — there's no Swift Charts import anywhere and no AI comparison UI (the backend
+> endpoint it would call, `POST /analytics/compare`, is itself unimplemented). **Orders** has no
+> search or category filter. There's no Sign in with Apple, no JWT/401-refresh handling (there's no
+> auth at all — see §8), and no SwiftData/offline cache — `Core/Persistence/` doesn't exist. The
+> image pipeline (downscale/JPEG-encode/EXIF-strip) *is* implemented, in `Core/Media/`. See
+> README.md's Status section for the up-to-date picture.
+
 ### Screens / flow
 1. **Home** — current month total, category donut, recent orders, prominent "Add receipt" FAB.
 2. **Capture** — camera / `VisionKit` scanner / photo picker (multi-select). Thumbnails are
@@ -527,17 +576,24 @@ duplicate orders from retries on poor connectivity.
 
 ### Client concerns
 - **Offline:** SwiftData caches orders + monthly summaries for read; captured-but-unsent receipts are
-  queued as drafts and uploaded when connectivity returns.
+  queued as drafts and uploaded when connectivity returns. *(Not implemented — no SwiftData usage
+  anywhere in the app today.)*
 - **Image pipeline:** downscale + JPEG encode off the main actor before upload; show per-image upload progress.
 - **Networking:** one `APIClient` actor, typed `Codable` DTOs, automatic 401 → refresh → retry once.
+  *(The actor and typed DTOs exist; there's no 401/refresh handling since there's no auth yet.)*
 - **Money:** decode as `Decimal` from strings; format with `Locale`-aware `FormatStyle`.
 - **Accessibility:** Dynamic Type throughout, VoiceOver labels on category chips and chart summaries.
 - **Privacy:** `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`; state clearly in the
-  onboarding that receipt images are sent to the Claude API for processing.
+  onboarding that receipt images are sent to the configured AI provider (Gemini by default, not
+  Claude — see `AI_PROVIDER.md`) for processing.
 
 ---
 
 ## 11. Web App (Next.js) Specification
+
+> **Not built.** `apps/web` today is API-only — there's no `(dashboard)/` route group, no pages
+> under `app/`, nothing described below. README.md's own Status section already says as much; the
+> iOS app is the only client. This section stays as the design for whenever the web UI gets built.
 
 - `/` dashboard: current month KPIs, category breakdown, recent orders.
 - `/orders`: table with month filter, inline category correction, CSV export.
@@ -557,7 +613,8 @@ duplicate orders from retries on poor connectivity.
   `MonthComparison` rows referencing either month.
 - Analytics endpoints read `MonthlySummary` only — never scan `OrderItem` at request time.
 - A nightly cron (`vercel.json` crons) reconciles summaries from source rows and logs drift; this is
-  the safety net for any missed invalidation.
+  the safety net for any missed invalidation. *(Not implemented — `apps/web/vercel.json` has no
+  `crons` entry today, just `framework` and `buildCommand`.)*
 
 ---
 
@@ -581,20 +638,28 @@ duplicate orders from retries on poor connectivity.
 
 ## 14. Environments & Deployment
 
+> This table is the original plan. **`docs/deployment.md` §3 has the accurate, current variable
+> list** — the AI provider vars are named differently (`EXTRACTION_PROVIDER`/`EXTRACTION_MODEL`/
+> `ANALYSIS_PROVIDER`/`ANALYSIS_MODEL`, not `CLAUDE_*`, see `AI_PROVIDER.md`), and
+> `BLOB_READ_WRITE_TOKEN`/`JWT_*`/`APPLE_*`/`RATE_LIMIT_PARSES_PER_DAY` are all unread by any code
+> path today (no blob storage, no auth, no rate limiting implemented — see the callout at the top of
+> this file).
+
 | Variable | Where | Notes |
 |---|---|---|
 | `DATABASE_URL` / `DIRECT_URL` | Vercel | pooled + direct (for migrations) |
-| `ANTHROPIC_API_KEY` | Vercel | server only |
-| `CLAUDE_EXTRACTION_MODEL` | Vercel | default `claude-sonnet-5` |
-| `CLAUDE_ANALYSIS_MODEL` | Vercel | default `claude-sonnet-5` |
-| `BLOB_READ_WRITE_TOKEN` | Vercel | blob storage |
-| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Vercel | rotate-able |
-| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_CLIENT_ID` | Vercel | Sign in with Apple |
-| `RATE_LIMIT_PARSES_PER_DAY` | Vercel | default 50 |
+| `ANTHROPIC_API_KEY` | Vercel | server only — one of two implemented providers |
+| `CLAUDE_EXTRACTION_MODEL` | Vercel | superseded by `EXTRACTION_MODEL` — see `docs/deployment.md` §3 |
+| `CLAUDE_ANALYSIS_MODEL` | Vercel | superseded by `ANALYSIS_MODEL` — see `docs/deployment.md` §3 |
+| `BLOB_READ_WRITE_TOKEN` | Vercel | not read anywhere — no blob storage exists |
+| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Vercel | not read anywhere — no auth exists |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_CLIENT_ID` | Vercel | not read anywhere — no auth exists |
+| `RATE_LIMIT_PARSES_PER_DAY` | Vercel | declared in `.env.example`, not enforced by any code path yet |
 
 - Vercel projects: **Production** (`main`) and **Preview** (every PR, isolated Neon branch DB).
-- `web-ci.yml`: typecheck → lint → unit tests → `prisma migrate diff` check → build.
-- `ios-ci.yml`: build + test on macOS runner; TestFlight distribution via Fastlane on tagged releases.
+- `web-ci.yml` / `ios-ci.yml`: planned, described here, but **no `.github/workflows/` directory
+  exists in this repo** — nothing runs these gates automatically yet; `scripts/verify.sh` is invoked
+  by hand today.
 - iOS points at the Preview or Production API via an xcconfig-driven `API_BASE_URL`.
 
 ---

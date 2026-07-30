@@ -1,6 +1,6 @@
 .DS_Store
 
-# Xcode (apps/ios has no .xcodeproj yet — ready for when one is added)
+# Xcode
 xcuserdata/
 *.xcuserstate
 DerivedData/

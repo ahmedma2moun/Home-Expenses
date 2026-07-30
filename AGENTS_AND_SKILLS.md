@@ -700,7 +700,11 @@ Formatting is never a review comment in this repo — it is a hook.
 
 ## 5. Automated gates (the non-agent half)
 
-These run in CI and don't depend on any model behaving well.
+This section describes the intended CI setup. **No CI actually runs it yet** — there is no
+`.github/workflows/` directory in this repo at all, so nothing below is enforced automatically on a
+push or PR. Every gate that exists today only runs when a human or agent invokes `scripts/verify.sh`
+by hand (see below). Treat "fails the build" as "would fail the build, once `web-ci.yml`/`ios-ci.yml`
+exist."
 
 | Gate | Tool | Fails the build when |
 |---|---|---|
@@ -709,17 +713,18 @@ These run in CI and don't depend on any model behaving well.
 | Layering | `eslint-plugin-boundaries` | a route handler imports Prisma, a service imports `next/server` |
 | Format | Prettier `--check` | drift |
 | Dead code | `knip` | unused exports and files (report → fail once clean) |
-| Tests | Vitest with coverage thresholds (80% lines on `lib/services`, `lib/claude`) | below threshold |
+| Tests | Vitest, coverage thresholds on `lib/services`/`lib/ai` | **currently set to 0/0 in `apps/web/vitest.config.ts`** — dropped there during the M1–M6 build-out to unblock `verify.sh` while most new services shipped without `.test.ts` files (a deliberate, temporary call, not the target state). Restore to a real threshold (e.g. 80/75) once tests are backfilled — don't leave this at 0 permanently. |
 | Migration drift | `prisma migrate diff --exit-code` | schema and migration history disagree |
 | Migration apply | apply all migrations to a fresh DB, then seed and smoke query | a migration doesn't apply cleanly |
-| Prompt evals | `npm run eval:extraction` (nightly + on prompt-path changes) | accuracy regression past threshold |
+| Prompt evals | `npm run eval:extraction` (nightly + on prompt-path changes) | accuracy regression past threshold — **no baseline exists yet**, `apps/web/fixtures/receipts/` is still empty despite the extraction prompt being live in code (see `docs/prompts/extraction.v1.md`) |
 | Security | `npm audit --audit-level=high`, secret scanning, CodeQL | high/critical finding |
-| iOS | `swiftlint --strict`, `swiftformat --lint`, `xcodebuild test` | any violation or failing test |
+| iOS | `swiftlint --strict`, `swiftformat --lint`, `xcodebuild test` | any violation or failing test — **there's no test target yet** (`apps/ios/project.yml`'s `testTargets: []`), so `xcodebuild test` has nothing to run today |
 | Commits | commitlint (Conventional Commits) | malformed message |
 | Pre-commit | husky + lint-staged (format, lint, typecheck changed files) | before the push wastes CI |
 
 Branch protection on `main`: required checks = web-ci, ios-ci, migration-check; at least one review;
-linear history; no force push.
+linear history; no force push. **None of this is configured yet** — it depends on the CI workflows
+above existing first.
 
 ### `scripts/verify.sh`
 One script, used by humans, hooks, agents, and CI — so "works on my machine" and "passes CI" cannot diverge.

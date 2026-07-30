@@ -14,13 +14,11 @@ Before you start, have these provisioned (README.md §1, §3, §4 walk through e
 - A GitHub repo with this code pushed.
 - A Postgres database — pooled + direct connection strings (Neon recommended; gives per-PR branch
   databases for Preview almost for free).
-- Vercel Blob storage — a `BLOB_READ_WRITE_TOKEN`.
 - An AI provider key — `GEMINI_API_KEY` by default (see `AI_PROVIDER.md`).
-- Sign in with Apple credentials (`APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_CLIENT_ID`,
-  `APPLE_PRIVATE_KEY`) — needed once `/auth/apple` is implemented; the app deploys without them,
-  but that route will fail at runtime until they're set.
-- Two JWT secrets you generate yourself: `openssl rand -base64 32` (once for `JWT_SECRET`, once
-  for `JWT_REFRESH_SECRET`).
+
+That's it. There's no blob storage to provision and no Sign in with Apple credentials to gather —
+neither is implemented yet (see the callout in §3). Ignore any older guidance that lists
+`BLOB_READ_WRITE_TOKEN` or `APPLE_*`/`JWT_*` variables as prerequisites here.
 
 ---
 
@@ -45,32 +43,35 @@ Before you start, have these provisioned (README.md §1, §3, §4 walk through e
 
 Add every variable below under **Settings → Environment Variables**, for **both** the Production
 and Preview environments. Use **separate credentials per environment** (a different
-`GEMINI_API_KEY`/`ANTHROPIC_API_KEY`, a different `JWT_SECRET`) so you can revoke one without
-breaking the other. If you provisioned Postgres or Blob through Vercel's own Storage tab, those
-variables are injected automatically — you only need to add the rest.
+`GEMINI_API_KEY`/`ANTHROPIC_API_KEY`) so you can revoke one without breaking the other. If you
+provisioned Postgres through Vercel's own Storage tab, those variables are injected automatically —
+you only need to add the rest. This table is the full list — there is nothing else the running app
+reads.
 
 | Variable | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | yes | Pooled connection string (Neon: the one with `-pooler` in the host) |
 | `DIRECT_URL` | yes | Direct (non-pooled) connection string, used for migrations |
-| `SHADOW_DATABASE_URL` | CI only | Not needed for the Vercel build itself — only for the `migrate diff` drift check in CI (see §6 caveat) |
-| `EXTRACTION_PROVIDER` | yes | `gemini` (default) or `anthropic` |
+| `SHADOW_DATABASE_URL` | CI only | Not needed for the Vercel build itself — only for the `migrate diff` drift check, which you'd run from your own machine or a CI workflow today (see §6 caveat; no such workflow exists yet in this repo) |
+| `EXTRACTION_PROVIDER` | yes | `gemini` (default) or `anthropic` — these are the only two providers implemented |
 | `ANALYSIS_PROVIDER` | yes | `gemini` (default) or `anthropic` |
 | `EXTRACTION_MODEL` | yes | e.g. `gemini-3.5-flash` |
 | `ANALYSIS_MODEL` | yes | e.g. `gemini-3.5-flash` |
 | `GEMINI_API_KEY` | if using gemini | from aistudio.google.com |
 | `ANTHROPIC_API_KEY` | if using anthropic | from platform.claude.com |
-| `BLOB_READ_WRITE_TOKEN` | yes | Vercel Blob storage |
-| `JWT_SECRET` | yes | `openssl rand -base64 32` |
-| `JWT_REFRESH_SECRET` | yes | `openssl rand -base64 32`, different value from above |
-| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_CLIENT_ID`, `APPLE_PRIVATE_KEY` | for `/auth/apple` | Sign in with Apple |
-| `RATE_LIMIT_PARSES_PER_DAY` | yes | default `50` |
 | `DEBUG_API_TOKEN` | recommended | Enables `POST /api/v1/echo`, the deploy smoke test in §9. Leave unset to disable that endpoint entirely. |
 
 Full reference with example values: `apps/web/.env.example`.
 
+> **Not implemented, don't set these:** `BLOB_READ_WRITE_TOKEN` (no blob storage — images travel as
+> base64 in the request body, see `docs/api.md`), `JWT_SECRET`/`JWT_REFRESH_SECRET`/`APPLE_TEAM_ID`/
+> `APPLE_KEY_ID`/`APPLE_CLIENT_ID`/`APPLE_PRIVATE_KEY` (no auth — every request resolves to one
+> seeded dev user, `lib/api/devUser.ts`), `RATE_LIMIT_PARSES_PER_DAY` (declared in `.env.example` for
+> forward-compat but not read by any code path yet). None of these are wired to anything today; if
+> you set them nothing breaks, but nothing reads them either.
+
 > **Never** put any of these in a `NEXT_PUBLIC_*` variable — the security-auditor agent checks for
-> exactly that. AI provider keys and JWT secrets are server-only.
+> exactly that. AI provider keys are server-only.
 
 ---
 
@@ -78,12 +79,14 @@ Full reference with example values: `apps/web/.env.example`.
 
 Click **Deploy**. Vercel will:
 
-1. Run the build command (`npm run vercel-build` = `prisma migrate deploy && next build`) — this
-   applies any pending migrations *before* building, so the deployed code and schema are always in
-   sync.
+1. Run the build command (`npm run vercel-build` = `prisma generate && prisma migrate deploy &&
+   npm run seed && next build`) — this applies any pending migrations and re-seeds the category
+   taxonomy *before* building, so the deployed code, schema, and reference data are always in sync.
 2. Build the Next.js app and register the `/api/v1/**` route handlers as serverless functions.
 
-If this is truly the first deploy, the database has tables but no seeded categories yet — see §7.
+Because seeding is now part of `vercel-build`, the first deploy already has its 19 categories —
+see §7 for when you'd still run the seed script by hand (e.g. pointing it at a database outside the
+normal Vercel build, or re-seeding after adding a category to `prisma/seed.ts` without a redeploy).
 
 ---
 
@@ -170,15 +173,19 @@ Supabase's IPv4 add-on.
 
 ---
 
-## 7. Seed the category taxonomy
+## 7. Seed the category taxonomy (and the dev user)
 
 The 19 categories in `PROJECT_SPEC.md` §6 aren't part of the migration — they're seeded
 separately, and the app is non-functional without them (every `OrderItem.categoryId` is a foreign
-key into this table). After the first deploy:
+key into this table). `prisma/seed.ts` also seeds the single hardcoded `User` row
+(`id: "dev-user"`) that every request currently resolves to, since there's no real auth to create
+one (§3's callout). **This now runs automatically as the last step of `vercel-build`** (§4), so a
+normal deploy needs nothing further. Run it by hand only if you need to seed a database outside that
+flow:
 
 ```bash
-# from your machine, pointed at the deployed database
-DATABASE_URL="<production DATABASE_URL>" DIRECT_URL="<production DIRECT_URL>" \
+# from your machine, pointed at the target database
+DATABASE_URL="<target DATABASE_URL>" DIRECT_URL="<target DIRECT_URL>" \
   npm --prefix apps/web run seed
 ```
 

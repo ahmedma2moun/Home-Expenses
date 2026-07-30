@@ -1,8 +1,11 @@
 # AI Provider — Change Record & Design
 
 > **Change:** the AI layer is no longer hard-wired to the Claude API. It now sits behind a small
-> **provider interface**, with **Google Gemini's free tier** as the default and a **self-hosted Ollama**
-> option for private data. Claude remains a drop-in provider.
+> **provider interface**, with **Google Gemini's free tier** as the default. Claude (Anthropic) is a
+> drop-in second provider. A **self-hosted Ollama** option is designed below for private data, but
+> **it is not implemented in code** — `apps/web/lib/ai/config.ts`'s `ProviderName` type is only
+> `"gemini" | "anthropic"`; setting `EXTRACTION_PROVIDER=ollama` throws at runtime. Sections §2, §4,
+> and §7 describing Ollama are the design for when it gets built, not current behavior.
 >
 > This document is the source of truth for the AI layer. Where it conflicts with the
 > "Claude API" wording still present in `PROJECT_SPEC.md`, this document wins. `README.md` has been
@@ -29,10 +32,10 @@ Requirements that drove the decision:
 
 | Concern | Choice |
 |---|---|
-| Default provider (build / prototype) | **Google Gemini `gemini-3.5-flash`** — free tier, native vision, structured JSON output |
-| Private / production-grade privacy | **Self-hosted Ollama** vision model (`qwen2.5vl` or `llama3.2-vision`) — zero cost, nothing leaves the machine |
-| Highest extraction quality (paid) | **Anthropic Claude** (`claude-sonnet-5`) or **Gemini paid tier** |
-| Comparison call (text-only) | Any of the above; can be routed to a separate free text tier (Groq / Cerebras) to spread quota |
+| Default provider (build / prototype) | **Google Gemini `gemini-3.5-flash`** — free tier, native vision, structured JSON output. **Implemented** (`lib/ai/gemini/provider.ts`). |
+| Highest extraction quality (paid) | **Anthropic Claude** (`claude-sonnet-5`) or **Gemini paid tier**. **Implemented** (`lib/ai/anthropic/provider.ts`) — this is the only other provider that exists in code today. |
+| Private / production-grade privacy | **Self-hosted Ollama** vision model (`qwen2.5vl` or `llama3.2-vision`) — zero cost, nothing leaves the machine. **Not implemented** — design only, see the callout at the top of this document. |
+| Comparison call (text-only) | Gemini or Anthropic today; routing to a separate free text tier (Groq / Cerebras) is an unimplemented idea, not a real option |
 
 The extraction and comparison calls are configured **independently**, so you can (for example) run
 extraction on local Ollama for privacy while sending the aggregate-only comparison to Gemini.
@@ -74,17 +77,19 @@ export interface AiResult {
 ```
 
 ```ts
-// apps/web/lib/ai/index.ts
+// apps/web/lib/ai/index.ts — actual current code, gemini/anthropic only
 export function getExtractionProvider(): ExtractionProvider {
-  switch (env.EXTRACTION_PROVIDER) {
+  switch (getExtractionProviderName()) {
     case "gemini":    return new GeminiProvider(env.GEMINI_API_KEY, env.EXTRACTION_MODEL);
-    case "ollama":    return new OllamaProvider(env.OLLAMA_BASE_URL, env.EXTRACTION_MODEL);
     case "anthropic": return new AnthropicProvider(env.ANTHROPIC_API_KEY, env.EXTRACTION_MODEL);
     default:          throw new AppError("config", "Unknown EXTRACTION_PROVIDER");
   }
 }
 // getAnalysisProvider() mirrors this with ANALYSIS_PROVIDER / ANALYSIS_MODEL.
 ```
+
+Adding `case "ollama": return new OllamaProvider(...)` here (plus the `OllamaProvider` class itself)
+is the not-yet-done work described in §7 — the switch has no such case today.
 
 Contract that every provider must honor, so the rest of the app is unchanged:
 
@@ -167,7 +172,15 @@ curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:g
   -d '{"contents":[{"parts":[{"text":"Reply with the single word: ok"}]}]}'
 ```
 
-## 7. Get the Ollama provider running (private option)
+## 7. Get the Ollama provider running (private option — not yet implemented)
+
+**This section is a design for future work, not a usable option today.** There is no
+`OllamaProvider` class, no `"ollama"` case in the provider factory, and no `OLLAMA_BASE_URL` env var
+read anywhere in `apps/web`. Setting `EXTRACTION_PROVIDER=ollama` will throw
+`Unknown EXTRACTION_PROVIDER "ollama"` at request time. The steps below are what someone implementing
+this provider would still need to do on the infrastructure side; the code side (an `OllamaProvider`
+implementing `ExtractionProvider`/`AnalysisProvider`, wired into `lib/ai/index.ts`) hasn't been
+written.
 
 Best on your own Apple Silicon / Linux box. Note it only serves while that machine is on, so it fits a
 "process on my machine" design better than a pure Vercel-serverless backend.
@@ -194,15 +207,17 @@ host); for local-first development it just works.
   for a prompt change. A provider swap is a model change and goes through the same gate.
 - **iOS app & API contract:** no change. The phone still holds no AI credential and only talks to the
   backend.
-- **`docs/` folder:** `docs/prompts/` stays; rename `lib/claude/` → `lib/ai/` with provider subfolders
-  (`lib/ai/gemini`, `lib/ai/ollama`, `lib/ai/anthropic`).
+- **`docs/` folder:** `docs/prompts/` stays; `lib/claude/` → `lib/ai/` has happened, with
+  `lib/ai/gemini` and `lib/ai/anthropic` provider subfolders. `lib/ai/ollama` doesn't exist yet — add
+  it if/when the Ollama provider gets built.
 
 ## 9. Recommendation
 
-Build and prototype on **Gemini `gemini-3.5-flash`** (free, native vision, structured output). Keep an
-**Ollama** provider behind the same interface for private data and offline work. If extraction accuracy
-or PII handling later demands it, flip `EXTRACTION_PROVIDER` to `anthropic` or Gemini paid — no code
-change, no schema change, and the eval suite tells you whether the swap helped.
+Build and prototype on **Gemini `gemini-3.5-flash`** (free, native vision, structured output) — this
+is what's actually implemented and configured today. Adding an **Ollama** provider behind the same
+interface for private data and offline work remains a good idea (§7) but is unbuilt. If extraction
+accuracy or PII handling later demands it, flip `EXTRACTION_PROVIDER` to `anthropic` or Gemini paid —
+no code change, no schema change, and the eval suite tells you whether the swap helped.
 
 ## Docs
 
