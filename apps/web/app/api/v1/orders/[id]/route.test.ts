@@ -6,8 +6,10 @@ import { DELETE, GET, PATCH } from "./route";
 const getOrder = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const updateOrder = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const deleteOrder = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock("@/lib/services/orderManagement", () => ({
+vi.mock("@/lib/services/orderQueries", () => ({
   getOrder: (...args: unknown[]) => getOrder(...args),
+}));
+vi.mock("@/lib/services/orderManagement", () => ({
   updateOrder: (...args: unknown[]) => updateOrder(...args),
   deleteOrder: (...args: unknown[]) => deleteOrder(...args),
 }));

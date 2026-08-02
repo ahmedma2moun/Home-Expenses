@@ -152,7 +152,7 @@ final class OrderEditViewModel: ObservableObject {
     private func updateRequest() -> OrderUpdateRequest {
         OrderUpdateRequest(
             merchant: merchant,
-            purchasedAt: purchasedAt.map { ISO8601DateFormatter().string(from: $0) },
+            purchasedAt: purchasedAt.map { ISO8601DateFormatter.wire.string(from: $0) },
             periodMonth: MonthLabel.format(periodMonth),
             currency: currency,
             subtotal: subtotal.wireString,

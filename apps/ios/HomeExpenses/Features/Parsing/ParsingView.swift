@@ -4,6 +4,7 @@ import SwiftUI
 /// (PROJECT_SPEC.md §10, screen 3).
 struct ParsingView: View {
     @StateObject private var viewModel: ParsingViewModel
+    @Environment(\.dismiss) private var dismiss
     var onParsed: (ReceiptDetailDTO) -> Void
 
     init(receiptId: String, images: [ReceiptImageInput], onParsed: @escaping (ReceiptDetailDTO) -> Void) {
@@ -38,10 +39,27 @@ struct ParsingView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
+            case .unavailable(let message):
+                ContentUnavailableView {
+                    Label("Can't continue with this receipt", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Back") { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         .navigationTitle("Parsing")
         .navigationBarBackButtonHidden(true)
+        .toolbar {
+            // The back button is hidden above (accidental navigation mid-parse would lose the
+            // in-flight upload's place), but the poll can still run up to 60s — a way out that
+            // isn't a sheet swipe.
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+            }
+        }
         .task {
             viewModel.start(onParsed: onParsed)
         }

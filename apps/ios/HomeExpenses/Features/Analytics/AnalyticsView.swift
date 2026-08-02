@@ -110,9 +110,9 @@ struct AnalyticsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name)
                 HStack(spacing: 4) {
-                    Text("\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: "EGP"))")
+                    Text("\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: viewModel.currency))")
                     Text("→")
-                    Text("\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: "EGP"))")
+                    Text("\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: viewModel.currency))")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -135,9 +135,9 @@ struct AnalyticsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name).font(.headline)
                 HStack(spacing: 4) {
-                    Text("\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: "EGP"))")
+                    Text("\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: viewModel.currency))")
                     Text("→")
-                    Text("\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: "EGP"))")
+                    Text("\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: viewModel.currency))")
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -151,8 +151,8 @@ struct AnalyticsView: View {
     }
 
     private func accessibilityValue(for row: CategoryComparisonRow) -> String {
-        let previousText = "\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: "EGP"))"
-        let currentText = "\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: "EGP"))"
+        let previousText = "\(viewModel.trendPreviousMonthLabel) \(row.previousAmount.formatted(currencyCode: viewModel.currency))"
+        let currentText = "\(viewModel.trendCurrentMonthLabel) \(row.currentAmount.formatted(currencyCode: viewModel.currency))"
         guard let ratio = row.changeRatio else {
             let isNew = row.previousAmount == 0 && row.currentAmount > 0
             return isNew ? "\(previousText), \(currentText), new category" : "\(previousText), \(currentText)"

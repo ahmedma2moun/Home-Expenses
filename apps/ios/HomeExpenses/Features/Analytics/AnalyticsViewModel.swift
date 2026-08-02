@@ -36,6 +36,13 @@ final class AnalyticsViewModel: ObservableObject {
         Calendar.current.date(byAdding: .month, value: -1, to: trendCurrentMonth) ?? trendCurrentMonth
     }
 
+    /// The account's one configured currency, read from whichever month has already loaded — there's
+    /// no currency of its own to fall back on before the first load, so "EGP" (the backend's own
+    /// `User.currency` default) only ever shows for the instant before real data replaces it.
+    var currency: String {
+        trendCurrentSummary?.currency ?? trendPreviousSummary?.currency ?? "EGP"
+    }
+
     var comparisonRows: [CategoryComparisonRow] {
         AnalyticsComparisonData.comparisonRows(current: trendCurrentSummary, previous: trendPreviousSummary)
     }
@@ -87,7 +94,10 @@ final class AnalyticsViewModel: ObservableObject {
         trendCurrentMonth = Calendar.current.date(byAdding: .month, value: months, to: trendCurrentMonth) ?? trendCurrentMonth
         resetItemsDrilldown()
         trendTask?.cancel()
-        trendTask = Task { await loadTrendComparison() }
+        trendTask = Task { [weak self] in
+            guard let self else { return }
+            await self.loadTrendComparison()
+        }
     }
 
     func load() async {
@@ -96,7 +106,10 @@ final class AnalyticsViewModel: ObservableObject {
         defer { isLoading = false }
         resetItemsDrilldown()
         trendTask?.cancel()
-        let task = Task { await loadTrendComparison() }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.loadTrendComparison()
+        }
         trendTask = task
         await task.value
     }
@@ -115,13 +128,19 @@ final class AnalyticsViewModel: ObservableObject {
         guard previousMonthItems[categoryId] == nil || currentMonthItems[categoryId] == nil else { return }
         loadingItemsCategoryId = categoryId
         itemsTask?.cancel()
-        itemsTask = Task { await loadItems(for: categoryId) }
+        itemsTask = Task { [weak self] in
+            guard let self else { return }
+            await self.loadItems(for: categoryId)
+        }
     }
 
     func retryCategoryItems(_ categoryId: String) {
         loadingItemsCategoryId = categoryId
         itemsTask?.cancel()
-        itemsTask = Task { await loadItems(for: categoryId) }
+        itemsTask = Task { [weak self] in
+            guard let self else { return }
+            await self.loadItems(for: categoryId)
+        }
     }
 
     /// Fetches both months of the comparison pair concurrently.

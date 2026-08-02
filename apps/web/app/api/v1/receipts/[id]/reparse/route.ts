@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { withApi } from "@/lib/api/withApi";
-import { ReparseRequestSchema } from "@/lib/api/schemas/receipts";
+import { ReceiptIdParamSchema, ReparseRequestSchema } from "@/lib/api/schemas/receipts";
 import { reparseReceipt, runExtraction } from "@/lib/services/receipts";
 
 export const runtime = "nodejs";
@@ -11,13 +11,14 @@ interface RouteParams {
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
-  const { id } = await params;
-  return withApi(req, async ({ body, userId, setStatus }) => {
+  const raw = await params;
+  return withApi(req, async ({ body, userId, requestId, setStatus }) => {
+    const { id } = ReceiptIdParamSchema.parse(raw);
     // No blob storage — the server never retained the original images, so a retry needs them
     // resent, same as the initial POST /receipts call.
     const input = ReparseRequestSchema.parse(body);
     const receipt = await reparseReceipt(userId, id);
-    after(() => runExtraction(receipt.id, input.images));
+    after(() => runExtraction(requestId, userId, receipt.id, input.images));
     setStatus(202);
     return receipt;
   });

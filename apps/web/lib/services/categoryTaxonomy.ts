@@ -1,3 +1,6 @@
+import type { Prisma } from "@/lib/db/prisma";
+import { AppError, type ValidationDetails } from "@/lib/api/envelope";
+
 /**
  * Verbatim taxonomy from PROJECT_SPEC.md §6 — single source of truth, seeded into `Category` and
  * used verbatim in the extraction prompt/schema. Never renumber or reuse slugs; add new rows only.
@@ -37,4 +40,35 @@ export function isCategorySlug(value: string): value is CategorySlug {
 /** Unknown category slugs from the model are coerced to `other` server-side (PROJECT_SPEC.md §7.2). */
 export function coerceCategorySlug(value: string): CategorySlug {
   return isCategorySlug(value) ? value : OTHER_CATEGORY_SLUG;
+}
+
+/**
+ * `OrderItem.categoryId` is a foreign key, so an unknown slug would surface as an opaque 500.
+ * Checking it up front turns that into a field-level 400 the client can point at. Retired
+ * categories are rejected too — `GET /categories` stopped offering them, so nothing legitimate
+ * still sends one, and accepting it would file spend under a category the app won't render.
+ *
+ * Shared by `confirmReceipt` and `updateOrder` (`orders.ts` / `orderManagement.ts`) — lives here,
+ * not in either of those, so importing it doesn't create a cycle between the two.
+ */
+export async function assertCategoriesExist(
+  tx: Prisma.TransactionClient,
+  items: { categoryId: string }[],
+): Promise<void> {
+  const requested = [...new Set(items.map((item) => item.categoryId))];
+  const known = await tx.category.findMany({
+    where: { id: { in: requested }, isActive: true },
+    select: { id: true },
+  });
+  const knownIds = new Set(known.map((category) => category.id));
+
+  const issues = items.flatMap((item, index) =>
+    knownIds.has(item.categoryId)
+      ? []
+      : [{ path: `items.${index}.categoryId`, message: `Unknown category "${item.categoryId}".` }],
+  );
+  if (issues.length > 0) {
+    const details: ValidationDetails = { issues };
+    throw new AppError("VALIDATION_ERROR", "Request failed validation.", 400, details);
+  }
 }

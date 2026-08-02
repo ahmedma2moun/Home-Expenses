@@ -1,6 +1,7 @@
 import { prisma, Prisma } from "@/lib/db/prisma";
 import { formatMonthLabel, monthRange, toPeriodMonth } from "@/lib/services/period";
 import { CATEGORIES } from "@/lib/services/categoryTaxonomy";
+import { getUserCurrency } from "@/lib/services/users";
 
 const CATEGORY_LOOKUP = new Map<string, (typeof CATEGORIES)[number]>(
   CATEGORIES.map((category) => [category.id, category]),
@@ -22,6 +23,9 @@ export interface MonthCategoryTotal {
 
 export interface MonthSummary {
   month: string;
+  /** The account's one configured currency (`User.currency`) — see `lib/services/users.ts`. Every
+   *  amount in this response is in this currency; there is no per-order breakdown here to mix. */
+  currency: string;
   totalAmount: string;
   orderCount: number;
   itemCount: number;
@@ -30,12 +34,13 @@ export interface MonthSummary {
 
 /** Reads the materialized MonthlySummary rows for one month — never scans OrderItem (§12). */
 export async function getMonthSummary(userId: string, periodMonth: Date): Promise<MonthSummary> {
-  const [rows, orderCount] = await Promise.all([
+  const [rows, orderCount, currency] = await Promise.all([
     prisma.monthlySummary.findMany({
       where: { userId, periodMonth },
       orderBy: { totalAmount: "desc" },
     }),
     prisma.order.count({ where: { userId, periodMonth } }),
+    getUserCurrency(userId),
   ]);
 
   const categories = rows.map((row) => ({
@@ -51,6 +56,7 @@ export async function getMonthSummary(userId: string, periodMonth: Date): Promis
 
   return {
     month: formatMonthLabel(periodMonth),
+    currency,
     totalAmount: totalAmount.toFixed(2),
     orderCount,
     itemCount,
@@ -74,6 +80,8 @@ export interface TrendCategorySeries {
 
 export interface Trends {
   months: string[];
+  /** The account's one configured currency — see `MonthSummary.currency`. */
+  currency: string;
   totals: TrendPoint[];
   categories: TrendCategorySeries[];
 }
@@ -93,10 +101,13 @@ export async function getTrends(
   const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - (months - 1), 1));
   const monthLabels = monthRange(start, end);
 
-  const rows = await prisma.monthlySummary.findMany({
-    where: { userId, periodMonth: { gte: start, lte: end } },
-    select: { periodMonth: true, categoryId: true, totalAmount: true },
-  });
+  const [rows, currency] = await Promise.all([
+    prisma.monthlySummary.findMany({
+      where: { userId, periodMonth: { gte: start, lte: end } },
+      select: { periodMonth: true, categoryId: true, totalAmount: true },
+    }),
+    getUserCurrency(userId),
+  ]);
 
   const totalsByMonth = new Map<string, Prisma.Decimal>(
     monthLabels.map((label) => [label, new Prisma.Decimal(0)]),
@@ -118,6 +129,7 @@ export async function getTrends(
 
   return {
     months: monthLabels,
+    currency,
     totals: monthLabels.map((month) => ({
       month,
       totalAmount: (totalsByMonth.get(month) ?? new Prisma.Decimal(0)).toFixed(2),

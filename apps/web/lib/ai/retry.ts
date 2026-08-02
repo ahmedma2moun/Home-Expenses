@@ -7,6 +7,13 @@ export interface RetryOptions {
   timeoutMs?: number;
   maxRetries?: number;
   isRetryable?: (error: unknown) => boolean;
+  /**
+   * Absolute `Date.now()`-scale deadline shared across every call site in one request (e.g. both
+   * the first extraction attempt and its one correction retry in `extraction.ts`). Without this,
+   * `timeoutMs * (maxRetries + 1)` per call can add up to well past the route's `maxDuration`,
+   * leaving a receipt stuck in `PARSING` forever with nothing to time it out.
+   */
+  deadlineMs?: number;
 }
 
 export interface RetryOutcome<T> {
@@ -23,18 +30,25 @@ export async function withRetry<T>(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
   const isRetryable = options.isRetryable ?? (() => false);
+  const deadline = options.deadlineMs ?? Date.now() + timeoutMs;
   const start = Date.now();
 
   let attempt = 0;
   for (;;) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new Error("Timed out before an AI provider attempt could run.");
+    }
+
     try {
-      const result = await call(timeoutMs);
+      const result = await call(Math.min(timeoutMs, remainingMs));
       return { result, attempts: attempt + 1, latencyMs: Date.now() - start };
     } catch (error) {
-      if (attempt >= maxRetries || !isRetryable(error)) {
+      const wait = backoffMs(attempt);
+      if (attempt >= maxRetries || !isRetryable(error) || Date.now() + wait >= deadline) {
         throw error;
       }
-      await sleep(backoffMs(attempt));
+      await sleep(wait);
       attempt += 1;
     }
   }

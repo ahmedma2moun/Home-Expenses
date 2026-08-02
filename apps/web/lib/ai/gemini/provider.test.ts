@@ -89,6 +89,30 @@ describe("GeminiProvider", () => {
     expect(call[0].contents).toEqual([{ text: 'compare this\n\n{"total":"1.00"}' }]);
   });
 
+  it("retries a dropped connection (no HTTP status) and succeeds on the next attempt", async () => {
+    vi.useFakeTimers();
+    try {
+      process.env.GEMINI_API_KEY = "AIza-test";
+      generateContent
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce(fakeResponse("ok"));
+      const { GeminiProvider } = await import("./provider");
+      const provider = new GeminiProvider("gemini-3.5-flash");
+
+      const promise = provider.extract({
+        images: [{ base64: "b64", mediaType: "image/jpeg", position: 0 }],
+        systemPrompt: "extract this",
+      });
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
+      expect(result.text).toBe("ok");
+      expect(generateContent).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("falls back to empty text and omits token counts when usage metadata is absent", async () => {
     process.env.GEMINI_API_KEY = "AIza-test";
     generateContent.mockResolvedValue({ text: undefined, usageMetadata: undefined });

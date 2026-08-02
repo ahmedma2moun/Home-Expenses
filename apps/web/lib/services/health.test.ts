@@ -46,6 +46,18 @@ describe("getHealthReport", () => {
     expect(report.ai.ok).toBe(false);
   });
 
+  it("reports degraded, not a thrown error, when EXTRACTION_PROVIDER is unrecognized", async () => {
+    queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    process.env.EXTRACTION_PROVIDER = "not-a-real-provider";
+
+    const { getHealthReport } = await import("./health");
+    const report = await getHealthReport();
+
+    expect(report.status).toBe("degraded");
+    expect(report.ai.ok).toBe(false);
+    expect(report.ai.error).toMatch(/not-a-real-provider/);
+  });
+
   it("checks the anthropic key when EXTRACTION_PROVIDER=anthropic", async () => {
     queryRaw.mockResolvedValue([{ "?column?": 1 }]);
     process.env.EXTRACTION_PROVIDER = "anthropic";

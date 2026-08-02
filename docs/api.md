@@ -219,6 +219,11 @@ duplicating. `400` if the receipt is in a status that can't be confirmed (e.g. s
 correction in `ItemCategoryOverride` for the learning loop — omit it for items the user added by
 hand that never came from a parse.
 
+**Single currency only.** `currency` must equal the account's configured currency (`User.currency`,
+`"EGP"` by default) — there's no multi-currency support (`MonthlySummary` has no currency
+dimension), so a mismatched currency is a `400 VALIDATION_ERROR` naming the field `currency`, not a
+silent accept. `PATCH /orders/:id` enforces the same rule whenever `currency` is included in the body.
+
 Request:
 
 ```json
@@ -277,6 +282,7 @@ Response `200`:
 {
   "data": {
     "month": "2026-07",
+    "currency": "EGP",
     "totalAmount": "1830.00",
     "orderCount": 12,
     "itemCount": 64,
@@ -296,6 +302,10 @@ Response `200`:
 
 `categories` is empty (not absent) for a month with no orders. Top merchants/items from
 PROJECT_SPEC.md §4's BR-5 aren't in this response — only what's shown above is implemented.
+
+`currency` is the account's one configured currency (`User.currency`) — there's no per-order
+currency breakdown here because there's no multi-currency support (see the confirm/update note
+below). Every amount in this response is in this currency.
 
 ## `GET /orders`
 
@@ -506,6 +516,7 @@ Response `200`:
 {
   "data": {
     "months": ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07"],
+    "currency": "EGP",
     "totals": [
       { "month": "2026-02", "totalAmount": "812.40" },
       { "month": "2026-03", "totalAmount": "930.10" }

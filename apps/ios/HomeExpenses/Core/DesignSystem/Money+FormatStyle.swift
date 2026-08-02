@@ -38,6 +38,9 @@ struct MoneyString: Codable, Equatable, Sendable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode("\(value)")
+        // Plain string interpolation on a whole-number Decimal emits "45", not "45.00" — the API's
+        // moneySchema rejects that as malformed money, so this must go through the same
+        // exactly-two-decimals formatter `decode` implicitly relies on being on the wire already.
+        try container.encode(value.wireString)
     }
 }

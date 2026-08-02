@@ -1,4 +1,4 @@
-import type { AnalysisProvider, ExtractionProvider } from "@/lib/ai/types";
+import type { AnalysisProvider, ExtractionProvider, PromptProvider } from "@/lib/ai/types";
 import {
   getAnalysisModel,
   getAnalysisProviderName,
@@ -28,4 +28,15 @@ export function getAnalysisProvider(): AnalysisProvider {
   }
 }
 
-export type { AnalysisProvider, ExtractionProvider } from "@/lib/ai/types";
+/** `POST /echo`'s deploy smoke test rides the analysis provider/model config — see PromptProvider. */
+export function getPromptProvider(): PromptProvider {
+  const model = getAnalysisModel();
+  switch (getAnalysisProviderName()) {
+    case "gemini":
+      return new GeminiProvider(model);
+    case "anthropic":
+      return new AnthropicProvider(model);
+  }
+}
+
+export type { AnalysisProvider, ExtractionProvider, PromptProvider } from "@/lib/ai/types";

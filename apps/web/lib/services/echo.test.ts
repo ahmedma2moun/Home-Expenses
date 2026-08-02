@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/envelope";
 
-const compare = vi.fn();
+const respond = vi.fn();
 
 vi.mock("@/lib/ai", () => ({
-  getAnalysisProvider: () => ({ compare }),
+  getPromptProvider: () => ({ respond }),
 }));
 
 vi.mock("@/lib/ai/config", () => ({
@@ -13,7 +13,7 @@ vi.mock("@/lib/ai/config", () => ({
 
 describe("askEcho", () => {
   it("round-trips the question through the configured provider and maps the result", async () => {
-    compare.mockResolvedValue({
+    respond.mockResolvedValue({
       text: "4",
       model: "gemini-3.5-flash",
       latencyMs: 123,
@@ -32,11 +32,11 @@ describe("askEcho", () => {
       inputTokens: 5,
       outputTokens: 1,
     });
-    expect(compare).toHaveBeenCalledWith({ systemPrompt: "What is 2+2?", diffJson: "" });
+    expect(respond).toHaveBeenCalledWith("What is 2+2?");
   });
 
   it("omits token counts when the provider doesn't report them", async () => {
-    compare.mockResolvedValue({ text: "ok", model: "local-model", latencyMs: 50 });
+    respond.mockResolvedValue({ text: "ok", model: "local-model", latencyMs: 50 });
     const { askEcho } = await import("./echo");
 
     const result = await askEcho("ping");
@@ -46,7 +46,7 @@ describe("askEcho", () => {
   });
 
   it("wraps a provider failure in a 502 AppError with the real message", async () => {
-    compare.mockRejectedValue(new Error("API key not valid"));
+    respond.mockRejectedValue(new Error("API key not valid"));
     const { askEcho } = await import("./echo");
 
     await expect(askEcho("hi")).rejects.toMatchObject({
@@ -56,7 +56,7 @@ describe("askEcho", () => {
   });
 
   it("wraps a non-Error rejection with a generic message", async () => {
-    compare.mockRejectedValue("some string throw");
+    respond.mockRejectedValue("some string throw");
     const { askEcho } = await import("./echo");
 
     await expect(askEcho("hi")).rejects.toBeInstanceOf(AppError);

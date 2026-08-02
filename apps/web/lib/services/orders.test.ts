@@ -5,20 +5,28 @@ import { UNKNOWN_MERCHANT, confirmReceipt } from "./orders";
 const receiptFindFirst = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderFindFirst = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderCreate = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-const receiptUpdate = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const receiptUpdateMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const overrideCreateMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const categoryFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const userFindUnique = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+
+/** Stands in for a Prisma P2002 unique-constraint violation without depending on its real shape. */
+class FakeUniqueConstraintError extends Error {}
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     receipt: { findFirst: (...args: unknown[]) => receiptFindFirst(...args) },
     order: { findFirst: (...args: unknown[]) => orderFindFirst(...args) },
+    user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
     $transaction: (run: (tx: unknown) => Promise<unknown>) =>
       run({
         order: { create: (...args: unknown[]) => orderCreate(...args) },
-        receipt: { update: (...args: unknown[]) => receiptUpdate(...args) },
+        receipt: { updateMany: (...args: unknown[]) => receiptUpdateMany(...args) },
+        category: { findMany: (...args: unknown[]) => categoryFindMany(...args) },
         itemCategoryOverride: { createMany: (...args: unknown[]) => overrideCreateMany(...args) },
       }),
   },
+  isUniqueConstraintViolation: (error: unknown) => error instanceof FakeUniqueConstraintError,
 }));
 
 const recomputeMonthlySummary = vi.fn<(...args: unknown[]) => Promise<void>>();
@@ -37,7 +45,7 @@ function confirmInput(overrides: Record<string, unknown> = {}) {
     subtotal: "120.00",
     total: "120.00",
     items: [
-      { name: "Milk", quantity: 2, lineTotal: "120.00", categoryId: "groceries", position: 0 },
+      { name: "Milk", quantity: 2, lineTotal: "120.00", categoryId: "dairy_eggs", position: 0 },
     ],
     ...overrides,
   });
@@ -51,7 +59,9 @@ describe("confirmReceipt", () => {
   function arrangeConfirmableReceipt() {
     receiptFindFirst.mockResolvedValue({ id: "receipt-1", status: "PARSED" });
     orderCreate.mockResolvedValue({ id: "order-1" });
-    receiptUpdate.mockResolvedValue({});
+    receiptUpdateMany.mockResolvedValue({ count: 1 });
+    userFindUnique.mockResolvedValue({ currency: "EGP" });
+    categoryFindMany.mockResolvedValue([{ id: "dairy_eggs" }]);
   }
 
   // BR-4: the user chooses the accounting month freely — a future periodMonth must create the
@@ -134,8 +144,8 @@ describe("confirmReceipt", () => {
             name: "Milk",
             quantity: 2,
             lineTotal: "120.00",
-            categoryId: "groceries",
-            aiCategoryId: "household",
+            categoryId: "dairy_eggs",
+            aiCategoryId: "pantry",
             position: 0,
           },
         ],
@@ -143,7 +153,46 @@ describe("confirmReceipt", () => {
     );
 
     expect(overrideCreateMany.mock.calls[0]?.[0]).toMatchObject({
-      data: [{ merchant: UNKNOWN_MERCHANT, itemName: "Milk", finalCategoryId: "groceries" }],
+      data: [{ merchant: UNKNOWN_MERCHANT, itemName: "Milk", finalCategoryId: "dairy_eggs" }],
+    });
+  });
+
+  it("rejects a currency that doesn't match the account's configured currency", async () => {
+    arrangeConfirmableReceipt();
+    userFindUnique.mockResolvedValue({ currency: "EGP" });
+
+    const failure = confirmReceipt("user-1", "receipt-1", confirmInput({ currency: "USD" }));
+
+    await expect(failure).rejects.toMatchObject({ code: "VALIDATION_ERROR", httpStatus: 400 });
+    expect(orderCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown category before creating the order", async () => {
+    arrangeConfirmableReceipt();
+    categoryFindMany.mockResolvedValue([]);
+
+    const failure = confirmReceipt("user-1", "receipt-1", confirmInput());
+
+    await expect(failure).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      httpStatus: 400,
+      details: { issues: [{ path: "items.0.categoryId" }] },
+    });
+    expect(orderCreate).not.toHaveBeenCalled();
+  });
+
+  // Two concurrent confirms of the same receipt both pass every check above and race into
+  // order.create; the loser must get the winner's order back, not a 500 (§13 idempotency).
+  it("returns the winner's order when two confirms race on Order.receiptId", async () => {
+    arrangeConfirmableReceipt();
+    orderCreate.mockRejectedValue(new FakeUniqueConstraintError("duplicate receiptId"));
+    orderFindFirst.mockResolvedValue({ id: "order-from-the-winner" });
+
+    const result = await confirmReceipt("user-1", "receipt-1", confirmInput());
+
+    expect(result.orderId).toBe("order-from-the-winner");
+    expect(orderFindFirst.mock.calls[0]?.[0]).toMatchObject({
+      where: { receiptId: "receipt-1", userId: "user-1" },
     });
   });
 });

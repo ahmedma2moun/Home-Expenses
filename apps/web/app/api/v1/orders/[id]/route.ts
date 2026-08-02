@@ -1,6 +1,7 @@
 import { withApi } from "@/lib/api/withApi";
 import { OrderIdParamSchema, OrderUpdateRequestSchema } from "@/lib/api/schemas/orders";
-import { deleteOrder, getOrder, updateOrder } from "@/lib/services/orderManagement";
+import { getOrder } from "@/lib/services/orderQueries";
+import { deleteOrder, updateOrder } from "@/lib/services/orderManagement";
 
 export const runtime = "nodejs";
 

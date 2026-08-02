@@ -13,6 +13,9 @@ struct MonthCategoryTotalDTO: Decodable, Identifiable, Sendable {
 
 struct MonthSummaryDTO: Decodable, Sendable {
     let month: String
+    /// The account's one configured currency — every amount in this response is in it (no
+    /// multi-currency support; see docs/api.md's `GET /analytics/month/:month`).
+    let currency: String
     let totalAmount: MoneyString
     let orderCount: Int
     let itemCount: Int

@@ -57,7 +57,19 @@ export interface ExtractionOutcome {
   inputTokens?: number;
   outputTokens?: number;
   latencyMs: number;
+  /** Total `withRetry` attempts across every AI call this extraction made (§7.1 cost tracking) —
+   *  just the first call unless a correction retry ran too. */
+  attempts: number;
 }
+
+/**
+ * `app/api/v1/receipts/route.ts` sets `maxDuration = 120` to cover this whole call (first attempt
+ * + one correction retry, see below). Budgeting under that — not at it — leaves headroom for the
+ * request body already parsed, the DB writes in `runExtraction`, and Vercel's own overhead; without
+ * it, `withRetry`'s per-call timeout × retries can add up past the function's hard kill, leaving the
+ * receipt stuck in `PARSING` with nothing to time it out (no reconciliation job exists for that).
+ */
+const EXTRACTION_BUDGET_MS = 100_000;
 
 function extractJson(text: string): unknown {
   // Models sometimes wrap JSON in prose or fences despite instructions — grab the outermost object.
@@ -84,8 +96,13 @@ function tryParse(text: string): ParseAttempt {
 /** Vision call + Zod validation with one correction retry (PROJECT_SPEC.md §7.2). */
 export async function extractReceipt(images: ReceiptImageInput[]): Promise<ExtractionOutcome> {
   const provider = getExtractionProvider();
+  const deadlineMs = Date.now() + EXTRACTION_BUDGET_MS;
 
-  const first = await provider.extract({ images, systemPrompt: EXTRACTION_SYSTEM_PROMPT_V1 });
+  const first = await provider.extract({
+    images,
+    systemPrompt: EXTRACTION_SYSTEM_PROMPT_V1,
+    deadlineMs,
+  });
   const firstAttempt = tryParse(first.text);
   if (firstAttempt.success) {
     return {
@@ -94,12 +111,14 @@ export async function extractReceipt(images: ReceiptImageInput[]): Promise<Extra
       ...(first.inputTokens !== undefined && { inputTokens: first.inputTokens }),
       ...(first.outputTokens !== undefined && { outputTokens: first.outputTokens }),
       latencyMs: first.latencyMs,
+      attempts: first.attempts,
     };
   }
 
   const retry = await provider.extract({
     images,
     systemPrompt: buildCorrectionPrompt(first.text, firstAttempt.error),
+    deadlineMs,
   });
   const retryAttempt = tryParse(retry.text);
   if (!retryAttempt.success) {
@@ -112,5 +131,6 @@ export async function extractReceipt(images: ReceiptImageInput[]): Promise<Extra
     ...(retry.inputTokens !== undefined && { inputTokens: retry.inputTokens }),
     ...(retry.outputTokens !== undefined && { outputTokens: retry.outputTokens }),
     latencyMs: first.latencyMs + retry.latencyMs,
+    attempts: first.attempts + retry.attempts,
   };
 }

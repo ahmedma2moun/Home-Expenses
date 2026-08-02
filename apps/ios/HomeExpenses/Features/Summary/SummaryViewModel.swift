@@ -18,22 +18,39 @@ final class SummaryViewModel: ObservableObject {
     @Published private(set) var categoryItemsErrors: [String: String] = [:]
 
     private let client = APIClient.shared
+    private var loadTask: Task<Void, Never>?
 
     func shiftMonth(by months: Int) {
         selectedMonth = Calendar.current.date(byAdding: .month, value: months, to: selectedMonth) ?? selectedMonth
         resetCategoryDrilldown()
-        Task { await load() }
+        reload()
+    }
+
+    /// Cancels any load still in flight, so tapping through months quickly can't let a slow
+    /// earlier response land — and its own cancellation error — on top of a later one.
+    func reload() {
+        loadTask?.cancel()
+        loadTask = Task { [weak self] in
+            guard let self else { return }
+            await self.load()
+        }
     }
 
     func load() async {
+        let month = selectedMonth
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
-            let label = MonthLabel.format(selectedMonth)
-            summary = try await client.get("/api/v1/analytics/month/\(label)")
+            let label = MonthLabel.format(month)
+            let result: MonthSummaryDTO = try await client.get("/api/v1/analytics/month/\(label)")
+            guard month == selectedMonth else { return }
+            summary = result
         } catch {
+            // Switching tabs or months cancels the request; that's the user's own doing, not a
+            // failure to put on screen.
+            guard month == selectedMonth, !error.isTaskCancellation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load the summary."
         }
     }

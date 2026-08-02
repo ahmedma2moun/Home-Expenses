@@ -1,6 +1,6 @@
-import { prisma, type ReceiptStatus } from "@/lib/db/prisma";
+import { prisma, isUniqueConstraintViolation, type ReceiptStatus } from "@/lib/db/prisma";
 import { AppError } from "@/lib/api/envelope";
-import { extractReceipt } from "@/lib/services/extraction";
+import { extractReceipt, type ExtractionOutcome } from "@/lib/services/extraction";
 import { coerceCategorySlug } from "@/lib/services/categoryTaxonomy";
 import type { ReceiptCreateRequest, ReceiptImageInput } from "@/lib/api/schemas/receipts";
 
@@ -9,46 +9,91 @@ export interface ReceiptSummary {
   status: ReceiptStatus;
 }
 
+export interface CreateReceiptResult extends ReceiptSummary {
+  /** False when `clientRef` already existed — the caller must not trigger extraction again: it
+   *  either already ran or is already running, and a second run would be a second billable AI
+   *  call racing the first one's writes. */
+  created: boolean;
+}
+
 export async function createReceipt(
   userId: string,
   input: ReceiptCreateRequest,
-): Promise<ReceiptSummary> {
-  const existing = await prisma.receipt.findUnique({
-    where: { userId_clientRef: { userId, clientRef: input.clientRef } },
-  });
-  if (existing) {
-    return { id: existing.id, status: existing.status };
-  }
-
+): Promise<CreateReceiptResult> {
   const positions = new Set(input.images.map((image) => image.position));
   if (positions.size !== input.images.length) {
     throw new AppError("VALIDATION_ERROR", "Image positions must be unique.", 400);
   }
 
-  const receipt = await prisma.receipt.create({
-    data: {
-      userId,
-      clientRef: input.clientRef,
-      status: "PARSING",
-      images: {
-        create: input.images.map((image) => ({
-          position: image.position,
-          mimeType: image.mimeType,
-          bytes: Math.floor((image.base64.length * 3) / 4),
-        })),
+  // Optimistic create + fall back to a read on conflict, rather than check-then-create: a retried
+  // request (same `clientRef`, poor connectivity) racing the original isn't a query-then-write gap
+  // away from creating two receipts and firing two vision calls for one upload.
+  try {
+    const receipt = await prisma.receipt.create({
+      data: {
+        userId,
+        clientRef: input.clientRef,
+        status: "PARSING",
+        images: {
+          create: input.images.map((image) => ({
+            position: image.position,
+            mimeType: image.mimeType,
+            bytes: Math.floor((image.base64.length * 3) / 4),
+          })),
+        },
       },
-    },
-  });
+    });
+    return { id: receipt.id, status: receipt.status, created: true };
+  } catch (error) {
+    if (isUniqueConstraintViolation(error)) {
+      const existing = await prisma.receipt.findUnique({
+        where: { userId_clientRef: { userId, clientRef: input.clientRef } },
+      });
+      if (existing) {
+        return { id: existing.id, status: existing.status, created: false };
+      }
+    }
+    throw error;
+  }
+}
 
-  return { id: receipt.id, status: receipt.status };
+/**
+ * Debug-level only, and deliberately shaped to exclude `parsedPayload`/item/merchant text (CLAUDE.md
+ * rule 6 — receipts are PII). Token/latency/attempt counts tied to `requestId` are what §7.1's cost
+ * tracking asks for; nothing here identifies what was actually on the receipt.
+ */
+function logExtractionUsage(
+  requestId: string,
+  userId: string,
+  receiptId: string,
+  outcome: Pick<
+    ExtractionOutcome,
+    "model" | "inputTokens" | "outputTokens" | "latencyMs" | "attempts"
+  >,
+): void {
+  console.debug("extraction_usage", {
+    requestId,
+    userId,
+    receiptId,
+    model: outcome.model,
+    inputTokens: outcome.inputTokens,
+    outputTokens: outcome.outputTokens,
+    latencyMs: outcome.latencyMs,
+    attempts: outcome.attempts,
+  });
 }
 
 /**
  * Runs after the 202 response is sent (see the route's `after()` call) — never throws. The images
  * are passed in directly from the request that triggered this run (no blob storage to fetch from).
  */
-export async function runExtraction(receiptId: string, images: ReceiptImageInput[]): Promise<void> {
-  const receipt = await prisma.receipt.findUnique({ where: { id: receiptId } });
+export async function runExtraction(
+  requestId: string,
+  userId: string,
+  receiptId: string,
+  images: ReceiptImageInput[],
+): Promise<void> {
+  const receipt = await prisma.receipt.findFirst({ where: { id: receiptId, userId } });
   if (!receipt) {
     return;
   }
@@ -61,10 +106,11 @@ export async function runExtraction(receiptId: string, images: ReceiptImageInput
         position: image.position,
       })),
     );
+    logExtractionUsage(requestId, userId, receiptId, outcome);
 
     if (!outcome.result.isReceipt) {
-      await prisma.receipt.update({
-        where: { id: receiptId },
+      await prisma.receipt.updateMany({
+        where: { id: receiptId, userId },
         data: {
           status: "FAILED",
           parseError: "These images don't look like a receipt.",
@@ -86,8 +132,8 @@ export async function runExtraction(receiptId: string, images: ReceiptImageInput
       })),
     };
 
-    await prisma.receipt.update({
-      where: { id: receiptId },
+    await prisma.receipt.updateMany({
+      where: { id: receiptId, userId },
       data: {
         status: "PARSED",
         parsedPayload: normalizedPayload,
@@ -100,8 +146,8 @@ export async function runExtraction(receiptId: string, images: ReceiptImageInput
       },
     });
   } catch (error) {
-    await prisma.receipt.update({
-      where: { id: receiptId },
+    await prisma.receipt.updateMany({
+      where: { id: receiptId, userId },
       data: {
         status: "FAILED",
         parseError: error instanceof Error ? error.message : "Unknown parse error.",
@@ -150,12 +196,12 @@ export async function reparseReceipt(userId: string, receiptId: string): Promise
     throw new AppError("VALIDATION_ERROR", "Only a FAILED receipt can be reparsed.", 400);
   }
 
-  const updated = await prisma.receipt.update({
-    where: { id: receiptId },
+  await prisma.receipt.updateMany({
+    where: { id: receiptId, userId },
     data: { status: "PARSING", parseError: null },
   });
 
-  return { id: updated.id, status: updated.status };
+  return { id: receipt.id, status: "PARSING" };
 }
 
 export async function discardReceipt(userId: string, receiptId: string): Promise<void> {
@@ -167,5 +213,8 @@ export async function discardReceipt(userId: string, receiptId: string): Promise
     throw new AppError("VALIDATION_ERROR", "A confirmed receipt cannot be discarded.", 400);
   }
 
-  await prisma.receipt.update({ where: { id: receiptId }, data: { status: "DISCARDED" } });
+  await prisma.receipt.updateMany({
+    where: { id: receiptId, userId },
+    data: { status: "DISCARDED" },
+  });
 }

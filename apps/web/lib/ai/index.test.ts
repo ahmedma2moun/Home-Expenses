@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getAnalysisProvider, getExtractionProvider } from "./index";
+import { getAnalysisProvider, getExtractionProvider, getPromptProvider } from "./index";
 import { AnthropicProvider } from "./anthropic/provider";
 import { GeminiProvider } from "./gemini/provider";
 
@@ -30,5 +30,15 @@ describe("getAnalysisProvider", () => {
   it("returns an AnthropicProvider when configured", () => {
     process.env.ANALYSIS_PROVIDER = "anthropic";
     expect(getAnalysisProvider()).toBeInstanceOf(AnthropicProvider);
+  });
+});
+
+describe("getPromptProvider", () => {
+  it("rides the analysis provider config, since POST /echo has no config of its own", () => {
+    process.env.ANALYSIS_PROVIDER = "anthropic";
+    expect(getPromptProvider()).toBeInstanceOf(AnthropicProvider);
+
+    process.env.ANALYSIS_PROVIDER = "gemini";
+    expect(getPromptProvider()).toBeInstanceOf(GeminiProvider);
   });
 });

@@ -1,2 +1,4 @@
-// Local development — points at your machine (simulator) or a Preview deployment (device).
-API_BASE_URL = http:/$()/home-expenses-theta.vercel.app
+// Local development — points at your machine (simulator). For a device, point this at a Preview
+// deployment instead (https://..., which needs no ATS exception — see Info.plist's
+// NSAppTransportSecurity, scoped to localhost only).
+API_BASE_URL = http:/$()/localhost:3000

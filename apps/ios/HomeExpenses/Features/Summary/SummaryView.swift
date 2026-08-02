@@ -61,6 +61,7 @@ struct SummaryView: View {
             } label: {
                 Image(systemName: "chevron.left")
             }
+            .accessibilityLabel("Previous month")
             Spacer()
             Text(MonthLabel.displayName(viewModel.selectedMonth))
                 .font(.headline)
@@ -70,6 +71,7 @@ struct SummaryView: View {
             } label: {
                 Image(systemName: "chevron.right")
             }
+            .accessibilityLabel("Next month")
         }
         .padding()
     }
@@ -81,7 +83,7 @@ struct SummaryView: View {
                     Text("Total spend")
                         .font(.title3.bold())
                     Spacer()
-                    Text(summary.totalAmount.value.formatted(currencyCode: "EGP"))
+                    Text(summary.totalAmount.value.formatted(currencyCode: summary.currency))
                         .font(.title3.bold())
                 }
                 HStack {
@@ -108,7 +110,7 @@ struct SummaryView: View {
                         ) {
                             categoryDetail(category.categoryId)
                         } label: {
-                            categoryRow(category)
+                            categoryRow(category, currency: summary.currency)
                         }
                     }
                 }
@@ -124,9 +126,13 @@ struct SummaryView: View {
         )
     }
 
-    private func categoryRow(_ category: MonthCategoryTotalDTO) -> some View {
+    private func categoryRow(_ category: MonthCategoryTotalDTO, currency: String) -> some View {
         HStack {
+            // Hidden from VoiceOver, not just decorative-by-convention: without this, an emoji
+            // reads out as its raw Unicode name ("broccoli") ahead of the category name that
+            // follows it, rather than being skipped the way a sighted glance would skip it.
             Text(category.emoji)
+                .accessibilityHidden(true)
             VStack(alignment: .leading) {
                 Text(category.name)
                 Text("\(category.itemCount) items")
@@ -134,9 +140,10 @@ struct SummaryView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(category.totalAmount.value.formatted(currencyCode: "EGP"))
+            Text(category.totalAmount.value.formatted(currencyCode: currency))
                 .monospacedDigit()
         }
+        .accessibilityElement(children: .combine)
     }
 
     /// The expanded body: items in this category for the selected month, grouped by the order

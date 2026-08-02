@@ -1,5 +1,5 @@
 import { withApi } from "@/lib/api/withApi";
-import { ConfirmReceiptRequestSchema } from "@/lib/api/schemas/receipts";
+import { ConfirmReceiptRequestSchema, ReceiptIdParamSchema } from "@/lib/api/schemas/receipts";
 import { confirmReceipt } from "@/lib/services/orders";
 
 export const runtime = "nodejs";
@@ -9,8 +9,9 @@ interface RouteParams {
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
-  const { id } = await params;
+  const raw = await params;
   return withApi(req, async ({ body, userId }) => {
+    const { id } = ReceiptIdParamSchema.parse(raw);
     const input = ConfirmReceiptRequestSchema.parse(body);
     return confirmReceipt(userId, id, input);
   });

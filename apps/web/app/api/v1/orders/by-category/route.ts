@@ -1,6 +1,6 @@
 import { withApi } from "@/lib/api/withApi";
 import { OrderItemsByCategoryQuerySchema } from "@/lib/api/schemas/orders";
-import { listOrderItemsByCategory } from "@/lib/services/orderManagement";
+import { listOrderItemsByCategory } from "@/lib/services/orderQueries";
 
 export const runtime = "nodejs";
 

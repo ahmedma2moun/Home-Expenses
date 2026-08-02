@@ -26,10 +26,26 @@ vi.mock("@anthropic-ai/sdk", () => {
       this.status = status;
     }
   }
+  class FakeAPIConnectionError extends FakeAPIError {
+    constructor({ message = "Connection error." }: { message?: string; cause?: Error } = {}) {
+      super(undefined as unknown as number, undefined, message);
+    }
+  }
+  class FakeAPIConnectionTimeoutError extends FakeAPIConnectionError {
+    constructor() {
+      super({ message: "Request timed out." });
+    }
+  }
   class FakeAnthropic {
     messages = { create };
+    constructor(public options: { apiKey: string; maxRetries?: number }) {}
   }
-  return { default: FakeAnthropic, APIError: FakeAPIError };
+  return {
+    default: FakeAnthropic,
+    APIError: FakeAPIError,
+    APIConnectionError: FakeAPIConnectionError,
+    APIConnectionTimeoutError: FakeAPIConnectionTimeoutError,
+  };
 });
 
 const ORIGINAL_ENV = { ...process.env };
@@ -94,5 +110,30 @@ describe("AnthropicProvider", () => {
     expect(call[0].messages[0]?.content).toEqual([
       { type: "text", text: 'compare this\n\n{"total":"1.00"}' },
     ]);
+  });
+
+  it("retries a dropped connection (no HTTP status) and succeeds on the next attempt", async () => {
+    vi.useFakeTimers();
+    try {
+      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+      const { APIConnectionError } = await import("@anthropic-ai/sdk");
+      create
+        .mockRejectedValueOnce(new APIConnectionError({}))
+        .mockResolvedValueOnce(fakeMessage("ok"));
+      const { AnthropicProvider } = await import("./provider");
+      const provider = new AnthropicProvider("claude-sonnet-5");
+
+      const promise = provider.extract({
+        images: [{ base64: "b64", mediaType: "image/jpeg", position: 0 }],
+        systemPrompt: "extract this",
+      });
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
+      expect(result.text).toBe("ok");
+      expect(create).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

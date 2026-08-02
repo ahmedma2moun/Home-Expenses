@@ -3,7 +3,7 @@ import { DEV_USER_ID } from "@/lib/api/devUser";
 import { GET } from "./route";
 
 const listOrderItemsByCategory = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock("@/lib/services/orderManagement", () => ({
+vi.mock("@/lib/services/orderQueries", () => ({
   listOrderItemsByCategory: (...args: unknown[]) => listOrderItemsByCategory(...args),
 }));
 

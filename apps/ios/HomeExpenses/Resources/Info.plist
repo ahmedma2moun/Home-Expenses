@@ -22,6 +22,20 @@
 	<dict/>
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<!-- Debug.xcconfig points the simulator at http://localhost:3000 for local dev — Release always
+	     uses https, so this exception never applies there. Scoped to localhost only, not a blanket
+	     NSAllowsArbitraryLoads. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Home Expenses uses the camera to photograph receipts. Images are sent to the AI provider to extract items and categories.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

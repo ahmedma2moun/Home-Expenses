@@ -16,6 +16,9 @@ export const ReceiptImageInputSchema = z.object({
 });
 export type ReceiptImageInput = z.infer<typeof ReceiptImageInputSchema>;
 
+/** Rule 3 applies to path params too — an id reaches Prisma, so it is validated like any input. */
+export const ReceiptIdParamSchema = z.object({ id: z.string().min(1).max(64) });
+
 export const ReceiptCreateRequestSchema = z.object({
   clientRef: clientRefSchema,
   images: z.array(ReceiptImageInputSchema).min(1).max(MAX_IMAGES),

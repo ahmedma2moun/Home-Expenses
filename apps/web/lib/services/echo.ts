@@ -1,5 +1,5 @@
 import { AppError } from "@/lib/api/envelope";
-import { getAnalysisProvider } from "@/lib/ai";
+import { getPromptProvider } from "@/lib/ai";
 import { getAnalysisProviderName } from "@/lib/ai/config";
 
 export interface EchoResult {
@@ -18,11 +18,11 @@ export interface EchoResult {
  * and it's gated by DEBUG_API_TOKEN, not exposed to end users.
  */
 export async function askEcho(question: string): Promise<EchoResult> {
-  const provider = getAnalysisProvider();
+  const provider = getPromptProvider();
 
   let result;
   try {
-    result = await provider.compare({ systemPrompt: question, diffJson: "" });
+    result = await provider.respond(question);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown provider error.";
     throw new AppError("INTERNAL_ERROR", `AI provider call failed: ${message}`, 502);

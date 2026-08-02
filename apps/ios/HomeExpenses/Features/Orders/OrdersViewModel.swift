@@ -33,7 +33,10 @@ final class OrdersViewModel: ObservableObject {
     /// response land on top of a later one.
     func reload() {
         loadTask?.cancel()
-        loadTask = Task { await load() }
+        loadTask = Task { [weak self] in
+            guard let self else { return }
+            await self.load()
+        }
     }
 
     func load() async {

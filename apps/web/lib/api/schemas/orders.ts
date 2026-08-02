@@ -21,7 +21,7 @@ export const OrderItemInputSchema = z.object({
   unit: z.string().min(1).max(20).nullable().optional(),
   unitPrice: moneySchema.nullable().optional(),
   lineTotal: moneySchema,
-  categoryId: z.string().min(1),
+  categoryId: z.enum(CATEGORY_SLUGS),
   aiCategoryId: z.string().min(1).nullable().optional(),
   position: z.number().int().min(0),
 });

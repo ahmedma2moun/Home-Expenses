@@ -32,6 +32,7 @@ struct CaptureView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Remove photo")
                         }
                     }
                     .onMove(perform: viewModel.move)

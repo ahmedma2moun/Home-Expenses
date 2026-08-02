@@ -4,6 +4,8 @@ export interface AiResult {
   inputTokens?: number;
   outputTokens?: number;
   latencyMs: number;
+  /** How many `withRetry` attempts this one call took (§7.1's cost/latency tracking). */
+  attempts: number;
 }
 
 export interface ReceiptImageInput {
@@ -15,6 +17,8 @@ export interface ReceiptImageInput {
 export interface ExtractionInput {
   images: ReceiptImageInput[];
   systemPrompt: string;
+  /** Shared `withRetry` deadline (`Date.now()`-scale) — see `lib/ai/retry.ts`'s `RetryOptions`. */
+  deadlineMs?: number;
 }
 
 export interface ExtractionResult extends AiResult {
@@ -39,4 +43,14 @@ export interface ExtractionProvider {
 /** Text: month-vs-month narrative from aggregates. */
 export interface AnalysisProvider {
   compare(input: AnalysisInput): Promise<AnalysisResult>;
+}
+
+/**
+ * A bare single-turn text prompt with no domain shape — only `POST /echo`'s deploy smoke test uses
+ * this (docs/api.md). Kept separate from `AnalysisProvider.compare` on purpose: `compare` is the
+ * real month-vs-month contract (`diffJson` isn't optional there), and overloading it with an empty
+ * `diffJson` for a smoke test would make that contract's own type lie about what's required.
+ */
+export interface PromptProvider {
+  respond(prompt: string): Promise<AiResult & { text: string }>;
 }

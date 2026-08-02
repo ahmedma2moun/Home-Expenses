@@ -8,6 +8,10 @@ final class ParsingViewModel: ObservableObject {
         case polling
         case failed(message: String)
         case timedOut
+        /// The receipt reached a status polling can't do anything useful with (already confirmed
+        /// or discarded, e.g. by another client) — distinct from `.failed` because "Retry" would
+        /// just reparse a receipt that isn't in a reparseable state.
+        case unavailable(message: String)
     }
 
     @Published private(set) var state: State = .polling
@@ -28,18 +32,32 @@ final class ParsingViewModel: ObservableObject {
         self.onParsed = onParsed
         state = .polling
         pollTask?.cancel()
-        pollTask = Task { await poll() }
+        pollTask = Task { [weak self] in
+            guard let self else { return }
+            await self.poll()
+        }
     }
 
     func retry() async {
         state = .polling
-        let request = ReparseRequest(images: images)
-        let _: ReceiptSummaryDTO? = try? await client.post(
-            "/api/v1/receipts/\(receiptId)/reparse",
-            body: request
-        )
+        do {
+            let request = ReparseRequest(images: images)
+            let _: ReceiptSummaryDTO = try await client.post(
+                "/api/v1/receipts/\(receiptId)/reparse",
+                body: request
+            )
+        } catch {
+            guard !error.isTaskCancellation else { return }
+            state = .failed(
+                message: (error as? LocalizedError)?.errorDescription ?? "Couldn't retry — check your connection."
+            )
+            return
+        }
         pollTask?.cancel()
-        pollTask = Task { await poll() }
+        pollTask = Task { [weak self] in
+            guard let self else { return }
+            await self.poll()
+        }
     }
 
     func cancel() {
@@ -48,9 +66,15 @@ final class ParsingViewModel: ObservableObject {
 
     private func poll() async {
         let deadline = Date().addingTimeInterval(60)
+        // Tracks whether the *last* attempt before the deadline was a network failure, so a run of
+        // nothing but dropped connections is reported as that, not as "taking longer than expected"
+        // — the two need different next steps from the user (check your connection vs. just wait).
+        var lastNetworkError: Error?
 
         while !Task.isCancelled {
-            if let detail = try? await client.get("/api/v1/receipts/\(receiptId)") as ReceiptDetailDTO {
+            do {
+                let detail: ReceiptDetailDTO = try await client.get("/api/v1/receipts/\(receiptId)")
+                lastNetworkError = nil
                 switch detail.status {
                 case .parsed:
                     onParsed?(detail)
@@ -58,15 +82,29 @@ final class ParsingViewModel: ObservableObject {
                 case .failed:
                     state = .failed(message: detail.parseError ?? "Couldn't read this receipt.")
                     return
-                case .confirmed, .discarded:
+                case .confirmed:
+                    state = .unavailable(message: "This receipt has already been confirmed.")
+                    return
+                case .discarded:
+                    state = .unavailable(message: "This receipt was discarded.")
                     return
                 case .parsing, .uploaded:
                     break
                 }
+            } catch {
+                guard !error.isTaskCancellation else { return }
+                lastNetworkError = error
             }
 
             if Date() >= deadline {
-                state = .timedOut
+                if let lastNetworkError {
+                    state = .failed(
+                        message: (lastNetworkError as? LocalizedError)?.errorDescription
+                            ?? "Couldn't reach the server — check your connection and retry."
+                    )
+                } else {
+                    state = .timedOut
+                }
                 return
             }
             try? await Task.sleep(for: .seconds(2))

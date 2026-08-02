@@ -40,5 +40,19 @@ targets:
         # way — see git history on Resources/Info.plist.
         INFOPLIST_FILE: HomeExpenses/Resources/Info.plist
     scheme:
-      testTargets: []
-      gatherCoverageData: false
+      testTargets:
+        - HomeExpensesTests
+      gatherCoverageData: true
+
+  HomeExpensesTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: HomeExpensesTests
+    dependencies:
+      - target: HomeExpenses
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.homeexpenses.HomeExpensesTests
+        GENERATE_INFOPLIST_FILE: YES

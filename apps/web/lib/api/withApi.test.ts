@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { Prisma } from "@/lib/db/prisma";
 import { withApi } from "./withApi";
 import { AppError } from "./envelope";
 import { DEV_USER_ID } from "./devUser";
+
+function prismaError(code: string): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("simulated", { code, clientVersion: "test" });
+}
 
 function jsonRequest(body: unknown, init: RequestInit = {}): Request {
   return new Request("https://example.com/api/v1/thing", {
@@ -65,6 +70,46 @@ describe("withApi", () => {
     await expect(res.json()).resolves.toEqual({
       error: { code: "INTERNAL_ERROR", message: "Something went wrong." },
     });
+  });
+
+  it("maps a Prisma unique-constraint violation (P2002) to a 400 VALIDATION_ERROR", async () => {
+    const req = jsonRequest({});
+    const res = await withApi(req, async () => {
+      throw prismaError("P2002");
+    });
+
+    expect(res.status).toBe(400);
+    const payload = (await res.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("maps a Prisma foreign-key violation (P2003) to a 400 VALIDATION_ERROR", async () => {
+    const req = jsonRequest({});
+    const res = await withApi(req, async () => {
+      throw prismaError("P2003");
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("maps a Prisma record-not-found error (P2025) to a 404 NOT_FOUND", async () => {
+    const req = jsonRequest({});
+    const res = await withApi(req, async () => {
+      throw prismaError("P2025");
+    });
+
+    expect(res.status).toBe(404);
+    const payload = (await res.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe("NOT_FOUND");
+  });
+
+  it("maps an unrecognized Prisma error code to a generic 500", async () => {
+    const req = jsonRequest({});
+    const res = await withApi(req, async () => {
+      throw prismaError("P9999");
+    });
+
+    expect(res.status).toBe(500);
   });
 
   it("returns 400 when the body isn't valid JSON", async () => {

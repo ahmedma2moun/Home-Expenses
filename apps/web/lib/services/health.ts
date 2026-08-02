@@ -33,7 +33,18 @@ const PROVIDER_ENV_VAR = {
 } as const;
 
 function checkAiConfig(): HealthCheck {
-  const provider = getExtractionProviderName();
+  // getExtractionProviderName() throws on an unrecognized EXTRACTION_PROVIDER value — health checks
+  // report a bad configuration as "degraded", they don't crash the request over it.
+  let provider;
+  try {
+    provider = getExtractionProviderName();
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown AI provider configuration error.",
+    };
+  }
+
   const envVar = PROVIDER_ENV_VAR[provider];
   return process.env[envVar]
     ? { ok: true }

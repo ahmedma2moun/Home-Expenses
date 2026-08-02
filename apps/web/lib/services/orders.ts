@@ -1,7 +1,9 @@
-import { prisma } from "@/lib/db/prisma";
+import { prisma, isUniqueConstraintViolation } from "@/lib/db/prisma";
 import { AppError } from "@/lib/api/envelope";
+import { assertCategoriesExist } from "@/lib/services/categoryTaxonomy";
 import { parseMonthLabel } from "@/lib/services/period";
 import { recomputeMonthlySummary, invalidateMonthComparisons } from "@/lib/services/monthlySummary";
+import { getUserCurrency, assertCurrencyMatches } from "@/lib/services/users";
 import type { ConfirmReceiptRequest } from "@/lib/api/schemas/receipts";
 
 const CONFIRMABLE_STATUSES = new Set(["PARSED", "FAILED"]);
@@ -52,63 +54,85 @@ export async function confirmReceipt(
     );
   }
 
+  const userCurrency = await getUserCurrency(userId);
+  assertCurrencyMatches(userCurrency, input.currency);
+
   const periodMonth = parseMonthLabel(input.periodMonth);
   const merchant = input.merchant.trim() || UNKNOWN_MERCHANT;
 
-  const orderId = await prisma.$transaction(async (tx) => {
-    const order = await tx.order.create({
-      data: {
-        userId,
-        receiptId: receipt.id,
-        merchant,
-        purchasedAt: input.purchasedAt ? new Date(input.purchasedAt) : null,
-        periodMonth,
-        currency: input.currency,
-        subtotal: input.subtotal,
-        tax: input.tax,
-        discount: input.discount,
-        total: input.total,
-        notes: input.notes ?? null,
-        source: "receipt",
-        items: {
-          create: input.items.map((item) => ({
-            name: item.name,
-            normalizedName: item.name.trim().toLowerCase(),
-            quantity: item.quantity,
-            unit: item.unit ?? null,
-            unitPrice: item.unitPrice ?? null,
-            lineTotal: item.lineTotal,
-            categoryId: item.categoryId,
-            aiCategoryId: item.aiCategoryId ?? null,
-            position: item.position,
-          })),
+  try {
+    const orderId = await prisma.$transaction(async (tx) => {
+      await assertCategoriesExist(tx, input.items);
+
+      const order = await tx.order.create({
+        data: {
+          userId,
+          receiptId: receipt.id,
+          merchant,
+          purchasedAt: input.purchasedAt ? new Date(input.purchasedAt) : null,
+          periodMonth,
+          currency: input.currency,
+          subtotal: input.subtotal,
+          tax: input.tax,
+          discount: input.discount,
+          total: input.total,
+          notes: input.notes ?? null,
+          source: "receipt",
+          items: {
+            create: input.items.map((item) => ({
+              name: item.name,
+              normalizedName: item.name.trim().toLowerCase(),
+              quantity: item.quantity,
+              unit: item.unit ?? null,
+              unitPrice: item.unitPrice ?? null,
+              lineTotal: item.lineTotal,
+              categoryId: item.categoryId,
+              aiCategoryId: item.aiCategoryId ?? null,
+              position: item.position,
+            })),
+          },
         },
-      },
+      });
+
+      await tx.receipt.updateMany({
+        where: { id: receipt.id, userId },
+        data: { status: "CONFIRMED" },
+      });
+
+      const overrides = input.items
+        .filter(
+          (item): item is typeof item & { aiCategoryId: string } =>
+            !!item.aiCategoryId && item.aiCategoryId !== item.categoryId,
+        )
+        .map((item) => ({
+          userId,
+          merchant,
+          itemName: item.name,
+          aiCategoryId: item.aiCategoryId,
+          finalCategoryId: item.categoryId,
+        }));
+      if (overrides.length > 0) {
+        await tx.itemCategoryOverride.createMany({ data: overrides });
+      }
+
+      await recomputeMonthlySummary(tx, userId, periodMonth);
+      await invalidateMonthComparisons(tx, userId, [periodMonth]);
+
+      return order.id;
     });
 
-    await tx.receipt.update({ where: { id: receipt.id }, data: { status: "CONFIRMED" } });
-
-    const overrides = input.items
-      .filter(
-        (item): item is typeof item & { aiCategoryId: string } =>
-          !!item.aiCategoryId && item.aiCategoryId !== item.categoryId,
-      )
-      .map((item) => ({
-        userId,
-        merchant,
-        itemName: item.name,
-        aiCategoryId: item.aiCategoryId,
-        finalCategoryId: item.categoryId,
-      }));
-    if (overrides.length > 0) {
-      await tx.itemCategoryOverride.createMany({ data: overrides });
+    return { orderId };
+  } catch (error) {
+    // Two concurrent confirms both pass the CONFIRMABLE_STATUSES check above and race into
+    // order.create; Order.receiptId's unique index rejects the loser. That loser didn't fail —
+    // it lost a race against a request that did the exact same thing, so the correct response is
+    // the order the winner created, not a 500 (confirmation must be idempotent, CLAUDE.md/§13).
+    if (isUniqueConstraintViolation(error)) {
+      const existingOrder = await prisma.order.findFirst({ where: { receiptId, userId } });
+      if (existingOrder) {
+        return { orderId: existingOrder.id };
+      }
     }
-
-    await recomputeMonthlySummary(tx, userId, periodMonth);
-    await invalidateMonthComparisons(tx, userId, [periodMonth]);
-
-    return order.id;
-  });
-
-  return { orderId };
+    throw error;
+  }
 }

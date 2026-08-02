@@ -19,3 +19,13 @@ enum FlexibleDateParser {
         return formatter.date(from: raw)
     }
 }
+
+extension ISO8601DateFormatter {
+    /// One shared instance for encoding `purchasedAt` onto the wire with the default format
+    /// options — every call site wants the same fixed configuration, so there's nothing to
+    /// re-allocate per call the way `FlexibleDateParser` legitimately does (it mutates
+    /// `formatOptions` between two parsing attempts, which a shared instance couldn't do safely).
+    /// `@MainActor` because every call site is a `@MainActor` view model and `ISO8601DateFormatter`
+    /// itself isn't `Sendable` — confining it to one actor is what makes sharing it safe.
+    @MainActor static let wire = ISO8601DateFormatter()
+}

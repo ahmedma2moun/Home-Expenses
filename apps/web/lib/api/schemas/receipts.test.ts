@@ -15,7 +15,7 @@ const confirmRequest = {
       name: "Milk",
       quantity: 2,
       lineTotal: "120.00",
-      categoryId: "groceries",
+      categoryId: "dairy_eggs",
       position: 0,
     },
   ],

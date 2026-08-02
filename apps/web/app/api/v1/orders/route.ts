@@ -1,7 +1,7 @@
 import { withApi } from "@/lib/api/withApi";
 import { stubRoute } from "@/lib/api/stub";
 import { OrderListQuerySchema } from "@/lib/api/schemas/orders";
-import { listOrders } from "@/lib/services/orderManagement";
+import { listOrders } from "@/lib/services/orderQueries";
 
 export const runtime = "nodejs";
 
