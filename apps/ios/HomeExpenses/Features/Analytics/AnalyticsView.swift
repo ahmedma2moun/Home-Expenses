@@ -92,6 +92,22 @@ struct AnalyticsView: View {
                         }
                     }
                 }
+
+                if !viewModel.priceWatchItems.isEmpty {
+                    Section("Price Watch") {
+                        ForEach(viewModel.priceWatchItems) { item in
+                            NavigationLink {
+                                ItemHistoryView(
+                                    itemName: item.itemName,
+                                    normalizedName: item.normalizedName,
+                                    currency: viewModel.currency
+                                )
+                            } label: {
+                                PriceWatchRow(item: item, currency: viewModel.currency)
+                            }
+                        }
+                    }
+                }
             }
         }
         .listStyle(.insetGrouped)

@@ -11,6 +11,9 @@ final class SummaryViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var selectedMonth: Date = MonthLabel.startOfMonth(Date())
+    /// `nil` until the price-watch fetch resolves; the teaser row stays hidden until then rather
+    /// than flashing a "0 items" state ahead of the real count.
+    @Published private(set) var priceWatchCount: Int?
 
     @Published private(set) var expandedCategoryId: String?
     @Published private(set) var categoryItems: [String: CategoryItemsPageDTO] = [:]
@@ -19,6 +22,7 @@ final class SummaryViewModel: ObservableObject {
 
     private let client = APIClient.shared
     private var loadTask: Task<Void, Never>?
+    private var priceWatchTask: Task<Void, Never>?
 
     func shiftMonth(by months: Int) {
         selectedMonth = Calendar.current.date(byAdding: .month, value: months, to: selectedMonth) ?? selectedMonth
@@ -40,7 +44,16 @@ final class SummaryViewModel: ObservableObject {
         let month = selectedMonth
         isLoading = true
         errorMessage = nil
+        priceWatchCount = nil
         defer { isLoading = false }
+
+        // Runs concurrently, not awaited here — the teaser is a best-effort extra, and chaining it
+        // after the summary would keep the full-screen spinner (and pull-to-refresh) up long after
+        // the actual month total has already landed.
+        priceWatchTask?.cancel()
+        priceWatchTask = Task { [weak self] in
+            await self?.loadPriceWatchCount(for: month)
+        }
 
         do {
             let label = MonthLabel.format(month)
@@ -52,6 +65,22 @@ final class SummaryViewModel: ObservableObject {
             // failure to put on screen.
             guard month == selectedMonth, !error.isTaskCancellation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load the summary."
+        }
+    }
+
+    /// Best-effort: the teaser is a nice-to-have, not core to the Home screen, so a failure here
+    /// just leaves the teaser hidden rather than surfacing a second error banner.
+    private func loadPriceWatchCount(for month: Date) async {
+        do {
+            let items: [PriceWatchItemDTO] = try await client.get(
+                "/api/v1/analytics/price-watch",
+                query: [URLQueryItem(name: "month", value: MonthLabel.format(month))]
+            )
+            guard month == selectedMonth else { return }
+            priceWatchCount = items.count
+        } catch {
+            guard month == selectedMonth, !error.isTaskCancellation else { return }
+            priceWatchCount = nil
         }
     }
 

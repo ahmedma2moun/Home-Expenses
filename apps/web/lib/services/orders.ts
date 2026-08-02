@@ -4,6 +4,7 @@ import { assertCategoriesExist } from "@/lib/services/categoryTaxonomy";
 import { parseMonthLabel } from "@/lib/services/period";
 import { recomputeMonthlySummary, invalidateMonthComparisons } from "@/lib/services/monthlySummary";
 import { getUserCurrency, assertCurrencyMatches } from "@/lib/services/users";
+import { normalizeItemName } from "@/lib/services/itemNormalization";
 import type { ConfirmReceiptRequest } from "@/lib/api/schemas/receipts";
 
 const CONFIRMABLE_STATUSES = new Set(["PARSED", "FAILED"]);
@@ -81,7 +82,7 @@ export async function confirmReceipt(
           items: {
             create: input.items.map((item) => ({
               name: item.name,
-              normalizedName: item.name.trim().toLowerCase(),
+              normalizedName: normalizeItemName(item.name),
               quantity: item.quantity,
               unit: item.unit ?? null,
               unitPrice: item.unitPrice ?? null,

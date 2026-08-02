@@ -94,6 +94,22 @@ struct SummaryView: View {
                 }
             }
 
+            if let priceWatchCount = viewModel.priceWatchCount, priceWatchCount > 0 {
+                Section {
+                    NavigationLink {
+                        PriceWatchListView(month: viewModel.selectedMonth, currency: summary.currency)
+                    } label: {
+                        Label(
+                            priceWatchCount == 1
+                                ? "1 item up in price"
+                                : "\(priceWatchCount) items up in price",
+                            systemImage: "arrow.up.circle.fill"
+                        )
+                        .foregroundStyle(.orange)
+                    }
+                }
+            }
+
             if summary.categories.isEmpty {
                 Section {
                     ContentUnavailableView(

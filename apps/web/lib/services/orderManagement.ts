@@ -5,6 +5,7 @@ import { parseMonthLabel } from "@/lib/services/period";
 import { recomputeMonthlySummary, invalidateMonthComparisons } from "@/lib/services/monthlySummary";
 import { orderNotFound } from "@/lib/services/orderQueries";
 import { UNKNOWN_MERCHANT } from "@/lib/services/orders";
+import { normalizeItemName } from "@/lib/services/itemNormalization";
 import { toOrderDto, type OrderDto } from "@/lib/services/orderDtos";
 import type { OrderItemInput, OrderUpdateRequest } from "@/lib/api/schemas/orders";
 
@@ -188,7 +189,7 @@ function scalarUpdates(
 function toItemCreate(item: OrderItemInput): Prisma.OrderItemCreateWithoutOrderInput {
   return {
     name: item.name,
-    normalizedName: item.name.trim().toLowerCase(),
+    normalizedName: normalizeItemName(item.name),
     quantity: item.quantity,
     unit: item.unit ?? null,
     unitPrice: item.unitPrice ?? null,

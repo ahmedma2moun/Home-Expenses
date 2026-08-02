@@ -11,6 +11,9 @@ final class AnalyticsViewModel: ObservableObject {
     @Published private(set) var trendCurrentMonth: Date = MonthLabel.startOfMonth(Date())
     @Published private(set) var trendCurrentSummary: MonthSummaryDTO?
     @Published private(set) var trendPreviousSummary: MonthSummaryDTO?
+    /// Items bought in `trendCurrentMonth` whose price jumped at the same merchant — the "Price
+    /// Watch" section's data, loaded alongside the month comparison itself.
+    @Published private(set) var priceWatchItems: [PriceWatchItemDTO] = []
     @Published private(set) var isLoading = false
     @Published private(set) var isLoadingTrend = false
     @Published var errorMessage: String?
@@ -24,6 +27,7 @@ final class AnalyticsViewModel: ObservableObject {
     private let client = APIClient.shared
     private var trendTask: Task<Void, Never>?
     private var itemsTask: Task<Void, Never>?
+    private var priceWatchTask: Task<Void, Never>?
 
     // Monotonic counters rather than "does the request's target month still match the current
     // one" — paging forward then immediately back makes that equality true again while an older,
@@ -153,6 +157,15 @@ final class AnalyticsViewModel: ObservableObject {
         defer {
             if requestID == trendRequestID { isLoadingTrend = false }
         }
+
+        // Runs concurrently, not chained after the trend fetch — the section is a best-effort
+        // extra, and awaiting it here would keep `isLoadingTrend` (and pull-to-refresh) spinning
+        // after the comparison itself has already landed.
+        priceWatchTask?.cancel()
+        priceWatchTask = Task { [weak self] in
+            await self?.loadPriceWatch(for: currentMonth, requestID: requestID)
+        }
+
         do {
             async let current: MonthSummaryDTO = client.get("/api/v1/analytics/month/\(MonthLabel.format(currentMonth))")
             async let previous: MonthSummaryDTO = client.get("/api/v1/analytics/month/\(MonthLabel.format(previousMonth))")
@@ -164,6 +177,22 @@ final class AnalyticsViewModel: ObservableObject {
         } catch {
             guard !error.isTaskCancellation, requestID == trendRequestID else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load spending trends."
+        }
+    }
+
+    /// Best-effort, same as `SummaryViewModel`'s teaser fetch: a failure here just leaves the
+    /// section empty rather than surfacing a second error banner on top of the trend one.
+    private func loadPriceWatch(for month: Date, requestID: Int) async {
+        do {
+            let items: [PriceWatchItemDTO] = try await client.get(
+                "/api/v1/analytics/price-watch",
+                query: [URLQueryItem(name: "month", value: MonthLabel.format(month))]
+            )
+            guard requestID == trendRequestID else { return }
+            priceWatchItems = items
+        } catch {
+            guard !error.isTaskCancellation, requestID == trendRequestID else { return }
+            priceWatchItems = []
         }
     }
 

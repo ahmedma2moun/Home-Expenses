@@ -32,6 +32,9 @@ final class ReviewViewModel: ObservableObject {
     @Published var notes: String = ""
     @Published private(set) var categories: [CategoryDTO] = []
     @Published private(set) var categoriesError: String?
+    /// Keyed by the same normalized name the backend matches on (`normalizeItemName` on the
+    /// server, `Self.normalize` here) — one batched lookup at load time, not one call per row.
+    @Published private(set) var priceChecks: [String: PriceCheckResultDTO] = [:]
     @Published private(set) var isSaving = false
     @Published var errorMessage: String?
     @Published private(set) var didConfirm = false
@@ -114,6 +117,61 @@ final class ReviewViewModel: ObservableObject {
             // silent empty list.
             categoriesError =
                 (error as? LocalizedError)?.errorDescription ?? "Couldn't load categories."
+        }
+    }
+
+    /// Same rule as the backend's `normalizeItemName` (lib/services/orders.ts) — the matching key
+    /// for `priceChecks`, computed client-side so a lookup doesn't need a round trip per keystroke.
+    static func normalize(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// The one domain decision behind the Review row's price badge: a creep warning always wins
+    /// over a cheaper-elsewhere note, since both point at the same row and the creep is the more
+    /// actionable of the two while the user is still editing. Lives here, not in the view, per
+    /// "views are dumb."
+    enum PriceBadge {
+        case creep(changeRatio: Double)
+        case cheaperElsewhere(merchant: String)
+    }
+
+    func priceBadge(for item: EditableItem) -> PriceBadge? {
+        guard let check = priceChecks[Self.normalize(item.name)] else { return nil }
+        if let creep = check.priceCreep {
+            return .creep(changeRatio: creep.changeRatio)
+        }
+        if let cheapest = check.cheapest,
+            cheapest.merchant.localizedCaseInsensitiveCompare(merchant) != .orderedSame
+        {
+            return .cheaperElsewhere(merchant: cheapest.merchant)
+        }
+        return nil
+    }
+
+    /// Matches the backend's `PriceCheckRequestSchema` cap (`lib/api/schemas/items.ts`) — a request
+    /// over the limit would 400 the whole batch and silently turn every badge off.
+    private static let maxPriceCheckItems = 50
+
+    /// One batched lookup over every item as originally parsed, fired once when the screen loads.
+    /// Best-effort: a failure here leaves the badges off, not the whole screen — Review is fully
+    /// usable without this hint. Deliberately not re-run as the user edits rows afterward.
+    func checkPrices() async {
+        let payloadItems =
+            items
+            .filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .prefix(Self.maxPriceCheckItems)
+            .map { PriceCheckItemRequest(name: $0.name, unitPrice: $0.unitPrice?.wireString, unit: $0.unit) }
+        guard !payloadItems.isEmpty else { return }
+        do {
+            let request = PriceCheckRequest(
+                merchant: merchant.trimmingCharacters(in: .whitespaces).isEmpty ? "Unknown merchant" : merchant,
+                items: Array(payloadItems)
+            )
+            let results: [PriceCheckResultDTO] = try await client.post("/api/v1/items/price-check", body: request)
+            priceChecks = Dictionary(results.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        } catch {
+            guard !error.isTaskCancellation else { return }
+            // Silent otherwise — see the doc comment above; the badges just stay off.
         }
     }
 

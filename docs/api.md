@@ -38,8 +38,11 @@ web clients talk to.
 | `DELETE` | `/orders/:id` | required | **live** | Delete order (cascades items, recomputes summaries) |
 | `GET` | `/orders/by-category?month=&categoryId=` | required | **live** | Every item in one month/category, grouped by order. See below |
 | `GET` | `/categories` | required | **live** | Taxonomy, active categories only |
+| `GET` | `/items/price-history?name=` | required | **live** | Every past purchase of one item, its cheapest store, and whether the price jumped last time. See below |
+| `POST` | `/items/price-check` | required | **live** | Batch price-creep/cheapest-store check for a receipt's unconfirmed draft items. See below |
 | `GET` | `/analytics/month/:month` | required | **live** | Totals, per-category breakdown for one month. See below |
 | `GET` | `/analytics/trends?months=12` | required | **live** | Series of monthly totals + per-category series |
+| `GET` | `/analytics/price-watch?month=` | required | **live** | Items bought this month whose price jumped at the same merchant. See below |
 | `POST` | `/analytics/compare` | required | **stub (501)** | `{ monthA, monthB, refresh? }` → cached or fresh AI narrative — not implemented, no `MonthComparison` logic exists |
 | `GET` | `/health` | none | **live** | Liveness + DB + AI provider reachability |
 | `POST` | `/echo` | debug token | **live** | Deploy smoke test — round-trips a question through the configured AI provider (not part of the product API) |
@@ -435,6 +438,92 @@ Response `200`:
 
 `categoryId` that isn't a known taxonomy slug is a `400`.
 
+## `GET /items/price-history`
+
+Every past purchase of one item (matched by `OrderItem.normalizedName` — the same
+`trim().toLowerCase()` key the confirm/edit flows already write), its cheapest store, and whether
+the most recent purchase was a price jump over the one before it. Backs the item-history sheet
+opened from the Review screen's badges, the Analytics "Price Watch" section, and the Home teaser.
+
+Query: `name` (**required**) — sent as the raw item name; the server normalizes it the same way
+`OrderItem.normalizedName` is written, so the client doesn't need to duplicate that rule.
+
+`priceCreep` only ever compares two purchases at the **same merchant** (matched case-insensitively)
+**and the same `unit`** — a cheaper price at a *different* store is what `cheapest` is for, never
+treated as a price drop/rise for this item, and a per-kg price is never compared against a per-item
+price for the same item name. `priceCreep` is `null` when there's no matching prior purchase, or
+when the increase is below the 15% threshold. `cheapest` is scoped to the most recent purchase's
+unit for the same reason.
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "itemName": "Tomatoes 1kg",
+    "history": [
+      { "orderId": "clx3order", "merchant": "Carrefour", "unitPrice": "24.00", "purchasedAt": "2026-07-14T18:32:00.000Z", "periodMonth": "2026-07" },
+      { "orderId": "clx2order", "merchant": "Metro", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+      { "orderId": "clx1order", "merchant": "Carrefour", "unitPrice": "20.00", "purchasedAt": "2026-05-01T09:00:00.000Z", "periodMonth": "2026-05" }
+    ],
+    "cheapest": { "orderId": "clx2order", "merchant": "Metro", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+    "priceCreep": {
+      "previousMerchant": "Carrefour",
+      "previousUnitPrice": "20.00",
+      "latestUnitPrice": "24.00",
+      "changeRatio": 0.2
+    }
+  }
+}
+```
+
+An item never bought before returns `history: []`, `cheapest: null`, `priceCreep: null` — not a 404.
+
+## `POST /items/price-check`
+
+One-shot batch lookup for the Review screen's unconfirmed draft items, fired once when the screen
+loads rather than per row. `items` accepts at most 50 entries and each `name` at most 200
+characters — over either limit is a `400 VALIDATION_ERROR` for the whole batch, not a partial
+result. `merchant` is the receipt's own (not-yet-saved) merchant, matched
+case-insensitively against history; each draft item's own (not-yet-saved) `unitPrice` — not any
+value already in the database — is what gets compared.
+
+Request:
+
+```json
+{
+  "merchant": "Carrefour",
+  "items": [
+    { "name": "Tomatoes 1kg", "unitPrice": "24.00", "unit": "kg" },
+    { "name": "Kombucha" }
+  ]
+}
+```
+
+`unitPrice` and `unit` are both optional — a draft row the user hasn't priced yet still gets a
+`cheapest` lookup, just no `priceCreep`. A draft with no `unit` only matches history rows that also
+have no `unit` recorded (a per-kg price and a per-item price for the same item name are never
+compared). Response `200`, one result per **unique** normalized item name in the request
+(duplicates in `items` collapse to one entry):
+
+```json
+{
+  "data": [
+    {
+      "name": "tomatoes 1kg",
+      "cheapest": { "orderId": "clx2order", "merchant": "Metro", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+      "priceCreep": {
+        "previousMerchant": "Carrefour",
+        "previousUnitPrice": "20.00",
+        "latestUnitPrice": "24.00",
+        "changeRatio": 0.2
+      }
+    },
+    { "name": "kombucha", "cheapest": null, "priceCreep": null }
+  ]
+}
+```
+
 ## `PATCH /orders/:id`
 
 Edits a saved order (BR-4). Every field is optional; an omitted field is left untouched, so
@@ -538,6 +627,38 @@ Response `200`:
   }
 }
 ```
+
+## `GET /analytics/price-watch`
+
+Every item bought in `month` whose unit price jumped at least 15% over the last purchase of that
+item at the **same merchant and unit** — the same rule as `priceCreep` in `GET /items/price-history`,
+so a store switch or a unit change is never counted as a price rise. "Last purchase" can be an
+earlier purchase within `month` itself, not only a strictly earlier month. Backs the Home teaser
+(client just reads the array length) and the Analytics "Price Watch" section. Sorted by the sharpest
+increase first, capped at 20 items.
+
+Query: `month` (**required**, `YYYY-MM`).
+
+Response `200`:
+
+```json
+{
+  "data": [
+    {
+      "itemName": "Milk 1L",
+      "normalizedName": "milk 1l",
+      "merchant": "Spinneys",
+      "previousMerchant": "Spinneys",
+      "previousUnitPrice": "24.00",
+      "latestUnitPrice": "30.00",
+      "changeRatio": 0.25,
+      "periodMonth": "2026-07"
+    }
+  ]
+}
+```
+
+An empty array means nothing crossed the threshold this month — not an error.
 
 ## Stub error shape (`POST /orders`, `POST /analytics/compare`, `POST /auth/apple`, `POST /auth/refresh`)
 

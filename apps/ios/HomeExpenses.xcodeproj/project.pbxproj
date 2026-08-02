@@ -28,7 +28,9 @@
 		8E50B697C66F9CCE62DC86ED /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D0DA9630B92123B7A6CC84 /* APIError.swift */; };
 		94ED77F8EC67B57B767E8DD0 /* ImagePreprocessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D8E317C996398356C5BBA9 /* ImagePreprocessor.swift */; };
 		997F9B8A5084AB07B3E54255 /* SummaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF768871CB6C7F173ECC54B /* SummaryViewModel.swift */; };
+		9A2B37B861A9A26A90605DC6 /* ItemHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741B7296B8E21BE407F06940 /* ItemHistoryView.swift */; };
 		9D0343D582BD7FB31088DAB2 /* FlexibleDateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445C031F812957E898B554C5 /* FlexibleDateParser.swift */; };
+		AAD7E68CBA0D09ABA03A6E4F /* ItemHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9CE2AFE0E34FE22DEB60888 /* ItemHistoryViewModel.swift */; };
 		B38C89D1A7519F107F6CD1F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5163727FA5CD012711C3D928 /* Assets.xcassets */; };
 		B661D087FBE5AC2800FD970C /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812F308DA6F71D3C551E6C12 /* CaptureView.swift */; };
 		C5A02E4009CB7335655AA410 /* Money+FormatStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B63B9AF80968D3DFB24C411 /* Money+FormatStyle.swift */; };
@@ -43,9 +45,12 @@
 		E87D12AF03BCAFC2A47BA3E7 /* project_backend_recurring_findings.md in Resources */ = {isa = PBXBuildFile; fileRef = 14977B36543D9B394549B3D9 /* project_backend_recurring_findings.md */; };
 		EF5B7B36F1D996E92F626E48 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543E6F74CA770CF4F4EE3E59 /* AppConfig.swift */; };
 		F056F5960CD6797833C94FE6 /* ReceiptFlowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E3535833B405892FD335CB8 /* ReceiptFlowViewModel.swift */; };
+		F65EEF43AA441D62E729ECF9 /* PriceWatchListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B25B7100A145A5805F5A831B /* PriceWatchListView.swift */; };
 		F911AFD3E763A92DC1748DE3 /* ReceiptFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */; };
+		FF1D56F25EED72951BED00BE /* PriceHistoryDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE08D458EC5B70BE2ED31628 /* PriceHistoryDTOs.swift */; };
 		FF6A616B36C3340D333E6EBC /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9A4FDA25034DEEE5EFBDF5 /* SummaryView.swift */; };
 		FF7249C59F2DEC43947F0D6D /* OrdersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1106737ABF3CCBEBED8B0E1 /* OrdersViewModel.swift */; };
+		FFD2F8AF8F7C5AE84792EF2B /* PriceWatchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C856E29F74625268A48141C1 /* PriceWatchViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +87,7 @@
 		59D4D5FE2DB906A11CC98C7E /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 		5B8194E5F7261B99B34A8673 /* OrderDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderDTOs.swift; sourceTree = "<group>"; };
 		5F9809FA30BF0FD6F08EC2DD /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		741B7296B8E21BE407F06940 /* ItemHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemHistoryView.swift; sourceTree = "<group>"; };
 		784C2F8BD854D5A35E0D136D /* MonthLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthLabel.swift; sourceTree = "<group>"; };
 		78F68D4C4C893C55DD59B933 /* FlexibleDateParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlexibleDateParserTests.swift; sourceTree = "<group>"; };
 		7B63B9AF80968D3DFB24C411 /* Money+FormatStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Money+FormatStyle.swift"; sourceTree = "<group>"; };
@@ -89,7 +95,10 @@
 		8C5C6CBEAAAC72C93C53F93A /* AnalyticsChartData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChartData.swift; sourceTree = "<group>"; };
 		93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptFlowView.swift; sourceTree = "<group>"; };
 		B1106737ABF3CCBEBED8B0E1 /* OrdersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersViewModel.swift; sourceTree = "<group>"; };
+		B25B7100A145A5805F5A831B /* PriceWatchListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceWatchListView.swift; sourceTree = "<group>"; };
 		BA29A036DDE0A91DA29C519A /* OrdersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersView.swift; sourceTree = "<group>"; };
+		C856E29F74625268A48141C1 /* PriceWatchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceWatchViewModel.swift; sourceTree = "<group>"; };
+		C9CE2AFE0E34FE22DEB60888 /* ItemHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemHistoryViewModel.swift; sourceTree = "<group>"; };
 		CB9A4FDA25034DEEE5EFBDF5 /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 		CEF0ED1E2CAAA4B1B07ED157 /* HomeExpensesTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = HomeExpensesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1906DABC2ED758D64C906B6 /* OrderEditViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditViewModel.swift; sourceTree = "<group>"; };
@@ -102,6 +111,7 @@
 		EBDB14208335B59CB9287406 /* HealthDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDTO.swift; sourceTree = "<group>"; };
 		F34D23F49B84082A679D6984 /* HomeExpensesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeExpensesApp.swift; sourceTree = "<group>"; };
 		F4D2CCB0956EEA3EC6185716 /* MoneyStringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyStringTests.swift; sourceTree = "<group>"; };
+		FE08D458EC5B70BE2ED31628 /* PriceHistoryDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistoryDTOs.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -180,6 +190,8 @@
 				8C5C6CBEAAAC72C93C53F93A /* AnalyticsChartData.swift */,
 				38BC8934C6E66B79B2A5A8F9 /* AnalyticsView.swift */,
 				368D0428FB40607C98067CB1 /* AnalyticsViewModel.swift */,
+				B25B7100A145A5805F5A831B /* PriceWatchListView.swift */,
+				C856E29F74625268A48141C1 /* PriceWatchViewModel.swift */,
 			);
 			path = Analytics;
 			sourceTree = "<group>";
@@ -194,6 +206,15 @@
 				8C9B181368F7FFA53C0845B9 /* Resources */,
 			);
 			path = HomeExpenses;
+			sourceTree = "<group>";
+		};
+		7454B09403C02BF40695AC3C /* Items */ = {
+			isa = PBXGroup;
+			children = (
+				741B7296B8E21BE407F06940 /* ItemHistoryView.swift */,
+				C9CE2AFE0E34FE22DEB60888 /* ItemHistoryViewModel.swift */,
+			);
+			path = Items;
 			sourceTree = "<group>";
 		};
 		74B8644348B33C752C4FD4B3 /* Review */ = {
@@ -287,6 +308,7 @@
 				30BBDCA99DCE3FBF7BADA690 /* ConfirmDTOs.swift */,
 				EBDB14208335B59CB9287406 /* HealthDTO.swift */,
 				5B8194E5F7261B99B34A8673 /* OrderDTOs.swift */,
+				FE08D458EC5B70BE2ED31628 /* PriceHistoryDTOs.swift */,
 				0D60391D2F08DD3D4F0E9714 /* ReceiptDTOs.swift */,
 			);
 			path = DTOs;
@@ -306,6 +328,7 @@
 			children = (
 				6360014309A07E80C1270A95 /* Analytics */,
 				3D2B6DC45D4D9C748B404130 /* Capture */,
+				7454B09403C02BF40695AC3C /* Items */,
 				9DCBA7769CD223E7F76E5395 /* Orders */,
 				8EA47DF20F82858B8A5C2B2E /* Parsing */,
 				74B8644348B33C752C4FD4B3 /* Review */,
@@ -427,6 +450,8 @@
 				3AC332DB2F50BA5661A71D56 /* HealthDTO.swift in Sources */,
 				E6B472E2A9CB2DF85553F81F /* HomeExpensesApp.swift in Sources */,
 				94ED77F8EC67B57B767E8DD0 /* ImagePreprocessor.swift in Sources */,
+				9A2B37B861A9A26A90605DC6 /* ItemHistoryView.swift in Sources */,
+				AAD7E68CBA0D09ABA03A6E4F /* ItemHistoryViewModel.swift in Sources */,
 				C5A02E4009CB7335655AA410 /* Money+FormatStyle.swift in Sources */,
 				226EA839812CEA9FF95C9B15 /* MonthLabel.swift in Sources */,
 				1616CCEE332B84B1F8907760 /* OrderDTOs.swift in Sources */,
@@ -437,6 +462,9 @@
 				FF7249C59F2DEC43947F0D6D /* OrdersViewModel.swift in Sources */,
 				D1E0AC6B8035DA874DA34C6B /* ParsingView.swift in Sources */,
 				E31F4191978AF2478C50C160 /* ParsingViewModel.swift in Sources */,
+				FF1D56F25EED72951BED00BE /* PriceHistoryDTOs.swift in Sources */,
+				F65EEF43AA441D62E729ECF9 /* PriceWatchListView.swift in Sources */,
+				FFD2F8AF8F7C5AE84792EF2B /* PriceWatchViewModel.swift in Sources */,
 				74E4710CEF548D36F56A9965 /* ReceiptDTOs.swift in Sources */,
 				F911AFD3E763A92DC1748DE3 /* ReceiptFlowView.swift in Sources */,
 				F056F5960CD6797833C94FE6 /* ReceiptFlowViewModel.swift in Sources */,
@@ -466,6 +494,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = JH2RL79XCP;
 				INFOPLIST_FILE = HomeExpenses/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -587,6 +616,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = JH2RL79XCP;
 				INFOPLIST_FILE = HomeExpenses/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

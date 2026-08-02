@@ -27,13 +27,16 @@ struct ReviewView: View {
                 notAReceipt
             } else {
                 reviewForm
+                    .task {
+                        await viewModel.loadCategories()
+                    }
+                    .task {
+                        await viewModel.checkPrices()
+                    }
             }
         }
         .navigationTitle("Review")
         .navigationBarBackButtonHidden(true)
-        .task {
-            await viewModel.loadCategories()
-        }
     }
 
     /// Defensive UI for `isReceipt == false` reaching this screen at all — the normal path routes
@@ -216,6 +219,8 @@ struct ReviewView: View {
                         .foregroundStyle(.orange)
                         .accessibilityLabel("Low confidence reading — double-check this row")
                 }
+
+                priceBadge(for: item.wrappedValue)
             }
         }
         .padding(.vertical, 4)
@@ -224,6 +229,25 @@ struct ReviewView: View {
     private func isLowConfidence(_ item: EditableItem) -> Bool {
         guard let confidence = item.confidence else { return false }
         return confidence < ReviewViewModel.lowConfidenceThreshold
+    }
+
+    @ViewBuilder
+    private func priceBadge(for item: EditableItem) -> some View {
+        switch viewModel.priceBadge(for: item) {
+        case .creep(let changeRatio):
+            let percentText = changeRatio.formatted(.percent.precision(.fractionLength(0)))
+            Label("Up \(percentText) since last time", systemImage: "arrow.up.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .accessibilityLabel("Price up \(percentText) since last time")
+        case .cheaperElsewhere(let merchant):
+            Label("Cheaper at \(merchant)", systemImage: "tag")
+                .font(.caption)
+                .foregroundStyle(.blue)
+                .accessibilityLabel("Cheaper at \(merchant)")
+        case nil:
+            EmptyView()
+        }
     }
 
     private var footer: some View {
