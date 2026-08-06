@@ -27,6 +27,7 @@ const HISTORY_DISPLAY_LIMIT = 100;
 export interface PriceHistoryEntry {
   orderId: string;
   merchant: string;
+  brand: string | null;
   unitPrice: string;
   purchasedAt: string | null;
   periodMonth: string;
@@ -48,6 +49,7 @@ export interface ItemPriceHistory {
 
 export interface PriceWatchItem {
   itemName: string;
+  brand: string | null;
   normalizedName: string;
   merchant: string;
   previousMerchant: string;
@@ -102,6 +104,7 @@ function toPriceHistoryEntry(row: PricedRow): PriceHistoryEntry {
   return {
     orderId: row.order.id,
     merchant: row.order.merchant,
+    brand: row.brand,
     unitPrice: row.unitPrice.toFixed(2),
     purchasedAt: row.order.purchasedAt?.toISOString() ?? null,
     periodMonth: formatMonthLabel(row.order.periodMonth),
@@ -220,6 +223,7 @@ export async function getPriceWatchItems(
     if (!creep) continue;
     results.push({
       itemName: latest.name,
+      brand: latest.brand,
       normalizedName: name,
       merchant: latest.order.merchant,
       ...creep,

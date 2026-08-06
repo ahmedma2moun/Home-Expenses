@@ -4,7 +4,9 @@ import SwiftUI
 /// (PROJECT_SPEC.md §10, screen 1), with the "Add receipt" flow reachable from the toolbar.
 struct SummaryView: View {
     @StateObject private var viewModel = SummaryViewModel()
-    @State private var showingCaptureFlow = false
+    // Shared with the Quick Add widget's deep link (`AppRouter`, `HomeExpensesApp.onOpenURL`) — the
+    // toolbar button and the widget both drive the same sheet through this one piece of state.
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
         NavigationStack {
@@ -13,13 +15,13 @@ struct SummaryView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            showingCaptureFlow = true
+                            router.showingCaptureFlow = true
                         } label: {
                             Image(systemName: "plus.circle.fill")
                         }
                     }
                 }
-                .sheet(isPresented: $showingCaptureFlow) {
+                .sheet(isPresented: $router.showingCaptureFlow) {
                     ReceiptFlowView {
                         Task { await viewModel.load() }
                     }
@@ -194,4 +196,5 @@ struct SummaryView: View {
 
 #Preview {
     SummaryView()
+        .environmentObject(AppRouter())
 }

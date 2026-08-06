@@ -7,6 +7,7 @@ import Foundation
 struct PriceHistoryEntryDTO: Decodable, Sendable {
     let orderId: String
     let merchant: String
+    let brand: String?
     let unitPrice: MoneyString
     let purchasedAt: String?
     let periodMonth: String
@@ -38,6 +39,7 @@ struct ItemPriceHistoryDTO: Decodable, Sendable {
 struct PriceWatchItemDTO: Decodable, Identifiable, Sendable {
     var id: String { normalizedName }
     let itemName: String
+    let brand: String?
     let normalizedName: String
     let merchant: String
     let previousMerchant: String

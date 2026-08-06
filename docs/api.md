@@ -177,7 +177,18 @@ Response `200`:
       "currency": "EGP",
       "items": [
         {
-          "name": "Tomatoes 1kg",
+          "name": "Full Cream Milk",
+          "brand": "Milkman",
+          "quantity": 1,
+          "unit": "L",
+          "unitPrice": "45.00",
+          "lineTotal": "45.00",
+          "category": "dairy_eggs",
+          "confidence": 0.94
+        },
+        {
+          "name": "Tomatoes",
+          "brand": null,
           "quantity": 2,
           "unit": "kg",
           "unitPrice": "22.50",
@@ -242,18 +253,23 @@ Request:
   "notes": null,
   "items": [
     {
-      "name": "Tomatoes 1kg",
-      "quantity": 2,
-      "unit": "kg",
-      "unitPrice": "22.50",
+      "name": "Full Cream Milk",
+      "brand": "Milkman",
+      "quantity": 1,
+      "unit": "L",
+      "unitPrice": "45.00",
       "lineTotal": "45.00",
-      "categoryId": "produce",
-      "aiCategoryId": "produce",
+      "categoryId": "dairy_eggs",
+      "aiCategoryId": "dairy_eggs",
       "position": 0
     }
   ]
 }
 ```
+
+`brand` is optional/nullable on every item shape — most produce, bakery, and unbranded items
+legitimately have none. It is display-only and does not affect price-history matching (see
+`GET /items/price-history` below), which stays keyed on `name` alone.
 
 Response `200`:
 
@@ -369,13 +385,14 @@ Response `200` — the order with its line items, in `position` order:
     "items": [
       {
         "id": "clx1item",
-        "name": "Tomatoes 1kg",
-        "quantity": 2,
-        "unit": "kg",
-        "unitPrice": "22.50",
+        "name": "Full Cream Milk",
+        "brand": "Milkman",
+        "quantity": 1,
+        "unit": "L",
+        "unitPrice": "45.00",
         "lineTotal": "45.00",
-        "categoryId": "produce",
-        "aiCategoryId": "produce",
+        "categoryId": "dairy_eggs",
+        "aiCategoryId": "dairy_eggs",
         "position": 0
       }
     ]
@@ -420,7 +437,8 @@ Response `200`:
         "items": [
           {
             "id": "clx1item",
-            "name": "Milk",
+            "name": "Full Cream Milk",
+            "brand": "Milkman",
             "quantity": 2,
             "unit": "L",
             "unitPrice": "60.00",
@@ -460,13 +478,13 @@ Response `200`:
 ```json
 {
   "data": {
-    "itemName": "Tomatoes 1kg",
+    "itemName": "Full Cream Milk",
     "history": [
-      { "orderId": "clx3order", "merchant": "Carrefour", "unitPrice": "24.00", "purchasedAt": "2026-07-14T18:32:00.000Z", "periodMonth": "2026-07" },
-      { "orderId": "clx2order", "merchant": "Metro", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
-      { "orderId": "clx1order", "merchant": "Carrefour", "unitPrice": "20.00", "purchasedAt": "2026-05-01T09:00:00.000Z", "periodMonth": "2026-05" }
+      { "orderId": "clx3order", "merchant": "Carrefour", "brand": "Milkman", "unitPrice": "24.00", "purchasedAt": "2026-07-14T18:32:00.000Z", "periodMonth": "2026-07" },
+      { "orderId": "clx2order", "merchant": "Metro", "brand": "Almarai", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+      { "orderId": "clx1order", "merchant": "Carrefour", "brand": "Milkman", "unitPrice": "20.00", "purchasedAt": "2026-05-01T09:00:00.000Z", "periodMonth": "2026-05" }
     ],
-    "cheapest": { "orderId": "clx2order", "merchant": "Metro", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+    "cheapest": { "orderId": "clx2order", "merchant": "Metro", "brand": "Almarai", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
     "priceCreep": {
       "previousMerchant": "Carrefour",
       "previousUnitPrice": "20.00",
@@ -478,6 +496,9 @@ Response `200`:
 ```
 
 An item never bought before returns `history: []`, `cheapest: null`, `priceCreep: null` — not a 404.
+`brand` on each history entry is that purchase's own stored brand — matching stays on item name
+alone, so entries for the same item can carry different brands (a store-brand swap doesn't drop out
+of history the way a different `name` would).
 
 ## `POST /items/price-check`
 
@@ -511,7 +532,7 @@ compared). Response `200`, one result per **unique** normalized item name in the
   "data": [
     {
       "name": "tomatoes 1kg",
-      "cheapest": { "orderId": "clx2order", "merchant": "Metro", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+      "cheapest": { "orderId": "clx2order", "merchant": "Metro", "brand": null, "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
       "priceCreep": {
         "previousMerchant": "Carrefour",
         "previousUnitPrice": "20.00",
@@ -556,7 +577,8 @@ Request:
   "total": "45.00",
   "items": [
     {
-      "name": "Tomatoes 1kg",
+      "name": "Tomatoes",
+      "brand": null,
       "quantity": 2,
       "unit": "kg",
       "unitPrice": "22.50",
@@ -645,8 +667,9 @@ Response `200`:
 {
   "data": [
     {
-      "itemName": "Milk 1L",
-      "normalizedName": "milk 1l",
+      "itemName": "Full Cream Milk",
+      "brand": "Milkman",
+      "normalizedName": "full cream milk",
       "merchant": "Spinneys",
       "previousMerchant": "Spinneys",
       "previousUnitPrice": "24.00",

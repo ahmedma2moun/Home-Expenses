@@ -76,6 +76,11 @@ struct ItemHistoryView: View {
     private func purchaseRow(_ entry: PriceHistoryEntryDTO) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
+                if let brand = entry.brand, !brand.isEmpty {
+                    Text(brand)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text(entry.merchant)
                 if let date = entry.displayDate {
                     Text(date.formatted(date: .abbreviated, time: .omitted))

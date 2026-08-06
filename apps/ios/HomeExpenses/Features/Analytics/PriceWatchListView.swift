@@ -65,10 +65,15 @@ struct PriceWatchRow: View {
         item.changeRatio.formatted(.percent.precision(.fractionLength(0)))
     }
 
+    private var displayName: String {
+        guard let brand = item.brand, !brand.isEmpty else { return item.itemName }
+        return "\(brand) \(item.itemName)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(item.itemName)
+                Text(displayName)
                     .lineLimit(1)
                 Spacer()
                 // `.fixedSize()` so the percent badge never gets compressed at large Dynamic Type
@@ -96,7 +101,7 @@ struct PriceWatchRow: View {
         // glyph literally and drop the up/down meaning that lives only in the badge's color and SF
         // Symbol (see AnalyticsView.swift's `comparisonRowLabel` for the same rule).
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.itemName)
+        .accessibilityLabel(displayName)
         .accessibilityValue(accessibilityValueText)
     }
 

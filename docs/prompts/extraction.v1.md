@@ -1,9 +1,7 @@
 # Extraction prompt — v1
 
-**Status:** live — wired into `lib/services/extraction.ts` (`EXTRACTION_SYSTEM_PROMPT_V1`) and
-called from `POST /receipts` and `POST /receipts/:id/reparse`. Keep this file and that constant in
-sync per the `prompt-change` skill. Provider-agnostic — see `AI_PROVIDER.md`; the default provider
-is Gemini.
+**Status:** superseded by [`extraction.v2.md`](./extraction.v2.md) — `lib/services/extraction.ts`
+now calls `EXTRACTION_SYSTEM_PROMPT_V2`. Kept for history; do not wire this version back in.
 
 **Hypothesis:** first version — no prior baseline to improve on. Establishes the extraction
 contract in PROJECT_SPEC.md §7.2 (now served through the provider interface in `AI_PROVIDER.md`).

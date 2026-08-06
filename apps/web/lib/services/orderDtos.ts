@@ -10,6 +10,7 @@ import { formatMonthLabel } from "@/lib/services/period";
 export interface OrderItemDto {
   id: string;
   name: string;
+  brand: string | null;
   quantity: number;
   unit: string | null;
   unitPrice: string | null;
@@ -117,6 +118,7 @@ export function toOrderItemDto(item: OrderWithItems["items"][number]): OrderItem
   return {
     id: item.id,
     name: item.name,
+    brand: item.brand,
     quantity: item.quantity.toNumber(),
     unit: item.unit,
     unitPrice: item.unitPrice?.toFixed(2) ?? null,

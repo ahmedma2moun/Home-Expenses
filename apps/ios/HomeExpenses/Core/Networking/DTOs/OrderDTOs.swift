@@ -42,6 +42,7 @@ struct OrderListPageDTO: Decodable, Sendable {
 struct OrderItemDTO: Decodable, Identifiable, Sendable {
     let id: String
     let name: String
+    let brand: String?
     let quantity: Double
     let unit: String?
     let unitPrice: MoneyString?
@@ -49,6 +50,13 @@ struct OrderItemDTO: Decodable, Identifiable, Sendable {
     let categoryId: String
     let aiCategoryId: String?
     let position: Int
+
+    /// "Milkman Full Cream Milk" when a brand was captured, otherwise just the item name — for
+    /// read-only rows (e.g. `OrderGroupView`) that don't edit brand and name as separate fields.
+    var displayName: String {
+        guard let brand, !brand.isEmpty else { return name }
+        return "\(brand) \(name)"
+    }
 }
 
 /// Mirrors `GET /api/v1/orders/:id` and the body of a successful `PATCH`. The response's
@@ -90,6 +98,7 @@ struct OrderUpdateRequest: Encodable, Sendable {
 
 struct OrderItemInput: Encodable, Sendable {
     let name: String
+    let brand: String?
     let quantity: Double
     let unit: String?
     let unitPrice: String?

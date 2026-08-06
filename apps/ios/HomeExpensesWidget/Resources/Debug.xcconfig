@@ -1,0 +1,2 @@
+// Mirrors HomeExpenses/Resources/Debug.xcconfig — same backend the app talks to in Debug.
+API_BASE_URL = http:/$()/localhost:3000

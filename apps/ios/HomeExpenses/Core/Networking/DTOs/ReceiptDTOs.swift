@@ -34,6 +34,7 @@ struct ReceiptSummaryDTO: Decodable, Sendable {
 
 struct ParsedReceiptItemDTO: Decodable, Sendable {
     let name: String
+    let brand: String?
     let quantity: Double?
     let unit: String?
     let unitPrice: MoneyString?

@@ -20,7 +20,7 @@ struct OrderGroupView: View {
             }
             ForEach(group.items) { item in
                 HStack {
-                    Text(item.name)
+                    Text(item.displayName)
                         .font(.footnote)
                     Spacer()
                     Text(item.lineTotal.value.formatted(currencyCode: group.currency))

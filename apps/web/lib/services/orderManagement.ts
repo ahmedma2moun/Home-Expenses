@@ -189,6 +189,7 @@ function scalarUpdates(
 function toItemCreate(item: OrderItemInput): Prisma.OrderItemCreateWithoutOrderInput {
   return {
     name: item.name,
+    brand: item.brand ?? null,
     normalizedName: normalizeItemName(item.name),
     quantity: item.quantity,
     unit: item.unit ?? null,

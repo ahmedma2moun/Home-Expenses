@@ -17,9 +17,23 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- Only used by the Quick Add widget's homeexpenses://capture deep link
+	     (HomeExpensesApp.onOpenURL, HomeExpensesWidget/QuickAddWidget.swift) — not a general
+	     integration point. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.homeexpenses.HomeExpenses</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>homeexpenses</string>
+			</array>
+		</dict>
+	</array>
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
 	<!-- Debug.xcconfig points the simulator at http://localhost:3000 for local dev — Release always

@@ -181,7 +181,12 @@ private struct OrderItemEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            TextField("Item name", text: $item.name)
+            HStack {
+                TextField("Brand", text: brandBinding)
+                    .frame(maxWidth: .infinity)
+                TextField("Item name", text: $item.name)
+                    .frame(maxWidth: .infinity)
+            }
             HStack {
                 TextField("Qty", value: $item.quantity, format: .number)
                     .keyboardType(.decimalPad)
@@ -212,6 +217,15 @@ private struct OrderItemEditor: View {
             .accessibilityHint("Changes this item's category")
         }
         .padding(.vertical, 4)
+    }
+
+    /// `EditableItem.brand` is `nil`-able, but `TextField` needs a non-optional binding — an
+    /// empty string round-trips back to `nil` so a blank brand field never sends `""` upstream.
+    private var brandBinding: Binding<String> {
+        Binding(
+            get: { item.brand ?? "" },
+            set: { item.brand = $0.isEmpty ? nil : $0 }
+        )
     }
 
     private var selectedCategory: CategoryDTO? {

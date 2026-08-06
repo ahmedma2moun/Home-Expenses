@@ -17,6 +17,7 @@ const DEFAULT_PAGE_SIZE = 50;
  */
 export const OrderItemInputSchema = z.object({
   name: z.string().min(1).max(200),
+  brand: z.string().min(1).max(120).nullable().optional(),
   quantity: z.coerce.number().positive().default(1),
   unit: z.string().min(1).max(20).nullable().optional(),
   unitPrice: moneySchema.nullable().optional(),

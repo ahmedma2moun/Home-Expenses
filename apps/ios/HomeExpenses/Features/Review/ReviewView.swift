@@ -182,7 +182,12 @@ struct ReviewView: View {
 
     private func itemRow(_ item: Binding<EditableItem>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            TextField("Item name", text: item.name)
+            HStack {
+                TextField("Brand", text: brandBinding(item))
+                    .frame(maxWidth: .infinity)
+                TextField("Item name", text: item.name)
+                    .frame(maxWidth: .infinity)
+            }
             HStack {
                 TextField("Qty", value: item.quantity, format: .number)
                     .keyboardType(.decimalPad)
@@ -224,6 +229,16 @@ struct ReviewView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    /// `EditableItem.brand` is `nil`-able (no brand read/entered), but `TextField` needs a
+    /// non-optional binding — an empty string round-trips back to `nil` so a blank brand field
+    /// never sends `""` to the backend.
+    private func brandBinding(_ item: Binding<EditableItem>) -> Binding<String> {
+        Binding(
+            get: { item.wrappedValue.brand ?? "" },
+            set: { item.wrappedValue.brand = $0.isEmpty ? nil : $0 }
+        )
     }
 
     private func isLowConfidence(_ item: EditableItem) -> Bool {

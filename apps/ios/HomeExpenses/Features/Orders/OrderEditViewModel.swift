@@ -72,6 +72,7 @@ final class OrderEditViewModel: ObservableObject {
         items.append(
             EditableItem(
                 name: "",
+                brand: nil,
                 quantity: 1,
                 unit: nil,
                 unitPrice: nil,
@@ -137,6 +138,7 @@ final class OrderEditViewModel: ObservableObject {
         items = order.items.map { item in
             EditableItem(
                 name: item.name,
+                brand: item.brand,
                 quantity: item.quantity,
                 unit: item.unit,
                 unitPrice: item.unitPrice?.value,
@@ -163,6 +165,7 @@ final class OrderEditViewModel: ObservableObject {
             items: items.enumerated().map { index, item in
                 OrderItemInput(
                     name: item.name,
+                    brand: item.brand,
                     quantity: item.quantity,
                     unit: item.unit,
                     unitPrice: item.unitPrice?.wireString,

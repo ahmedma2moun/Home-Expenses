@@ -18,6 +18,14 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
+    # Without this, xcodegen emits no `TargetAttributes.ProvisioningStyle` at all, which Xcode
+    # silently treats as manual signing pinned to whatever wildcard "iPhone Developer" identity is
+    # lying around — fine for a simulator build, but it means `xcodebuild archive` picks a
+    # development profile instead of a distribution one, which can't go to TestFlight. Setting this
+    # here (not just in the Xcode GUI) keeps it from being wiped on the next `xcodegen generate`.
+    attributes:
+      ProvisioningStyle: Automatic
+      DevelopmentTeam: JH2RL79XCP
     sources:
       - path: HomeExpenses
         excludes:
@@ -31,6 +39,10 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.homeexpenses.HomeExpenses
         PRODUCT_NAME: HomeExpenses
+        # `attributes.DevelopmentTeam` below only sets what Xcode's GUI shows as selected — the
+        # build system itself (and `xcodebuild` on the command line especially) resolves signing
+        # from this actual build setting, so both need to be present.
+        DEVELOPMENT_TEAM: JH2RL79XCP
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: false
         ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: true
@@ -39,10 +51,54 @@ targets:
         # silently deleting hand-written keys (API_BASE_URL, usage descriptions). Learned the hard
         # way — see git history on Resources/Info.plist.
         INFOPLIST_FILE: HomeExpenses/Resources/Info.plist
+    dependencies:
+      - target: HomeExpensesWidgetExtension
+        embed: true
     scheme:
       testTargets:
         - HomeExpensesTests
       gatherCoverageData: true
+
+  # The Home Screen widgets (SpendWidget, QuickAddWidget). No auth exists yet, so the extension
+  # calls the backend directly with its own URLSession request — no App Group needed to share a
+  # credential with the app. It shares several existing app source files verbatim (see the file list
+  # below) rather than needing a separate framework target.
+  HomeExpensesWidgetExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    attributes:
+      ProvisioningStyle: Automatic
+      DevelopmentTeam: JH2RL79XCP
+    sources:
+      - path: HomeExpensesWidget
+        excludes:
+          - Resources/Info.plist
+          - Resources/Debug.xcconfig
+          - Resources/Release.xcconfig
+      # Shared verbatim with the app target — pure Foundation/SwiftUI, nothing camera/PhotosUI-
+      # related to drag into the extension's process.
+      - path: HomeExpenses/Core/Networking/APIClient.swift
+      - path: HomeExpenses/Core/Networking/APIError.swift
+      - path: HomeExpenses/Core/Networking/AppConfig.swift
+      - path: HomeExpenses/Core/Networking/DTOs/AnalyticsDTOs.swift
+      - path: HomeExpenses/Core/Networking/DTOs/PriceHistoryDTOs.swift
+      - path: HomeExpenses/Core/DesignSystem/Money+FormatStyle.swift
+      - path: HomeExpenses/Core/DesignSystem/MonthLabel.swift
+      - path: HomeExpenses/Core/DesignSystem/FlexibleDateParser.swift
+    configFiles:
+      Debug: HomeExpensesWidget/Resources/Debug.xcconfig
+      Release: HomeExpensesWidget/Resources/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.homeexpenses.HomeExpenses.Widget
+        PRODUCT_NAME: HomeExpensesWidgetExtension
+        DEVELOPMENT_TEAM: JH2RL79XCP
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: HomeExpensesWidget/Resources/Info.plist
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
 
   HomeExpensesTests:
     type: bundle.unit-test

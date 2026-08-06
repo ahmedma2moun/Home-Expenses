@@ -3,6 +3,7 @@ import Foundation
 struct EditableItem: Identifiable {
     let id = UUID()
     var name: String
+    var brand: String?
     var quantity: Double
     var unit: String?
     var unitPrice: Decimal?
@@ -94,6 +95,7 @@ final class ReviewViewModel: ObservableObject {
         items = parsed.items.map { item in
             EditableItem(
                 name: item.name,
+                brand: item.brand,
                 quantity: item.quantity ?? 1,
                 unit: item.unit,
                 unitPrice: item.unitPrice?.value,
@@ -179,6 +181,7 @@ final class ReviewViewModel: ObservableObject {
         items.append(
             EditableItem(
                 name: "",
+                brand: nil,
                 quantity: 1,
                 unit: nil,
                 unitPrice: nil,
@@ -199,6 +202,7 @@ final class ReviewViewModel: ObservableObject {
         items.append(
             EditableItem(
                 name: "Adjustment",
+                brand: nil,
                 quantity: 1,
                 unit: nil,
                 unitPrice: nil,
@@ -230,6 +234,7 @@ final class ReviewViewModel: ObservableObject {
         let requestItems = items.enumerated().map { index, item in
             ConfirmOrderItemRequest(
                 name: item.name,
+                brand: item.brand,
                 quantity: item.quantity,
                 unit: item.unit,
                 unitPrice: item.unitPrice?.wireString,

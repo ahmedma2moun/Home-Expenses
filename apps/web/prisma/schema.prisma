@@ -104,7 +104,8 @@ model OrderItem {
   id             String   @id @default(cuid())
   orderId        String
   name           String
-  normalizedName String? // lowercased/trimmed, for merchant-item memory
+  brand          String? // manufacturer/brand, split from name, e.g. "Milkman" for "Full Cream Milk"
+  normalizedName String? // lowercased/trimmed item name only (brand excluded) — merchant-item memory
   quantity       Decimal  @db.Decimal(10, 3) @default(1)
   unit           String? // kg, L, pcs
   unitPrice      Decimal? @db.Decimal(12, 2)

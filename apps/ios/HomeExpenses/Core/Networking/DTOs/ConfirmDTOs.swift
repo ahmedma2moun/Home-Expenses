@@ -2,6 +2,7 @@ import Foundation
 
 struct ConfirmOrderItemRequest: Encodable, Sendable {
     let name: String
+    let brand: String?
     let quantity: Double
     let unit: String?
     let unitPrice: String?

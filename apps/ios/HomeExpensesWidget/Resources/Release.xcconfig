@@ -1,0 +1,2 @@
+// Mirrors HomeExpenses/Resources/Release.xcconfig — same production backend the app talks to.
+API_BASE_URL = https:/$()/home-expenses-theta.vercel.app
