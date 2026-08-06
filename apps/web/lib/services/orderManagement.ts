@@ -173,9 +173,6 @@ function scalarUpdates(
 ): Prisma.OrderUpdateInput {
   return {
     ...(input.merchant !== undefined && { merchant: input.merchant.trim() || UNKNOWN_MERCHANT }),
-    ...(input.purchasedAt !== undefined && {
-      purchasedAt: input.purchasedAt ? new Date(input.purchasedAt) : null,
-    }),
     ...(periodMonth && { periodMonth }),
     ...(input.currency !== undefined && { currency: input.currency }),
     ...(input.subtotal !== undefined && { subtotal: input.subtotal }),

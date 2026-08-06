@@ -3,7 +3,6 @@ import { ConfirmReceiptRequestSchema } from "./receipts";
 
 const confirmRequest = {
   merchant: "Carrefour",
-  purchasedAt: "2026-07-26T18:32:00+02:00",
   periodMonth: "2026-07",
   currency: "EGP",
   subtotal: "120.00",

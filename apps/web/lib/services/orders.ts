@@ -70,7 +70,6 @@ export async function confirmReceipt(
           userId,
           receiptId: receipt.id,
           merchant,
-          purchasedAt: input.purchasedAt ? new Date(input.purchasedAt) : null,
           periodMonth,
           currency: input.currency,
           subtotal: input.subtotal,

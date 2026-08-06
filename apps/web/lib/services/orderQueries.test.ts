@@ -21,14 +21,13 @@ function decimal(value: string) {
 }
 
 const JULY = new Date(Date.UTC(2026, 6, 1));
-const PURCHASED_AT = new Date("2026-07-14T18:32:00.000Z");
+const CREATED_AT = new Date("2026-07-14T19:00:00.000Z");
 
 function orderRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "order-1",
     receiptId: null,
     merchant: "Carrefour",
-    purchasedAt: PURCHASED_AT,
     periodMonth: JULY,
     currency: "EGP",
     subtotal: decimal("120.00"),
@@ -37,7 +36,7 @@ function orderRow(overrides: Record<string, unknown> = {}) {
     total: decimal("120.00"),
     notes: null,
     source: "receipt",
-    createdAt: new Date("2026-07-14T19:00:00.000Z"),
+    createdAt: CREATED_AT,
     updatedAt: new Date("2026-07-14T19:00:00.000Z"),
     items: [],
     ...overrides,
@@ -71,6 +70,16 @@ describe("listOrders", () => {
 
     expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
       where: { userId: "user-1", periodMonth: JULY },
+    });
+  });
+
+  it("sorts newest-created first, with id as the tiebreak", async () => {
+    orderFindMany.mockResolvedValue([]);
+
+    await listOrders("user-1", OrderListQuerySchema.parse({}));
+
+    expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
   });
 
@@ -112,7 +121,7 @@ describe("listOrders", () => {
   // Prisma's own `cursor` would resolve the anchor by primary key alone, letting another user's
   // order id position this user's page.
   it("resolves the cursor row within the caller's own orders", async () => {
-    orderFindFirst.mockResolvedValue({ id: "order-9", purchasedAt: PURCHASED_AT });
+    orderFindFirst.mockResolvedValue({ id: "order-9", createdAt: CREATED_AT });
     orderFindMany.mockResolvedValue([]);
 
     await listOrders("user-1", OrderListQuerySchema.parse({ cursor: "order-9" }));
@@ -131,33 +140,16 @@ describe("listOrders", () => {
     expect(orderFindMany).not.toHaveBeenCalled();
   });
 
-  it("pages past a dated cursor with a keyset predicate, not a NULL comparison", async () => {
-    orderFindFirst.mockResolvedValue({ id: "order-9", purchasedAt: PURCHASED_AT });
+  it("pages past a cursor with a keyset predicate on createdAt", async () => {
+    orderFindFirst.mockResolvedValue({ id: "order-9", createdAt: CREATED_AT });
     orderFindMany.mockResolvedValue([]);
 
     await listOrders("user-1", OrderListQuerySchema.parse({ cursor: "order-9" }));
 
     expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
       where: {
-        OR: [
-          { purchasedAt: { lt: PURCHASED_AT } },
-          { purchasedAt: null },
-          { purchasedAt: PURCHASED_AT, id: { lt: "order-9" } },
-        ],
+        OR: [{ createdAt: { lt: CREATED_AT } }, { createdAt: CREATED_AT, id: { lt: "order-9" } }],
       },
-    });
-  });
-
-  // The date-less block sorts last, so paging from inside it stays inside it. Prisma's cursor
-  // compared against NULL here and silently returned nothing.
-  it("keeps paging through date-less orders", async () => {
-    orderFindFirst.mockResolvedValue({ id: "order-9", purchasedAt: null });
-    orderFindMany.mockResolvedValue([]);
-
-    await listOrders("user-1", OrderListQuerySchema.parse({ cursor: "order-9" }));
-
-    expect(orderFindMany.mock.calls[0]?.[0]).toMatchObject({
-      where: { OR: [{ purchasedAt: null, id: { lt: "order-9" } }] },
     });
   });
 });
@@ -183,7 +175,7 @@ describe("listOrderItemsByCategory", () => {
 
   // Items outside the requested category must not leak into another order's group just because
   // the order also holds a matching item.
-  it("groups only the matching items under each order, newest purchase first", async () => {
+  it("groups only the matching items under each order, newest order first", async () => {
     orderFindMany.mockResolvedValue([
       orderRow({
         id: "order-1",
@@ -204,7 +196,7 @@ describe("listOrderItemsByCategory", () => {
         {
           orderId: "order-1",
           merchant: "Carrefour",
-          purchasedAt: PURCHASED_AT.toISOString(),
+          createdAt: CREATED_AT.toISOString(),
           currency: "EGP",
           items: [
             {

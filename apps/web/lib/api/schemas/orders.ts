@@ -64,7 +64,6 @@ export const OrderUpdateRequestSchema = z
     // Blank is accepted for the same reason as on confirm — a receipt with no legible merchant is
     // stored under a placeholder rather than costing the user their edit.
     merchant: z.string().trim().max(200).optional(),
-    purchasedAt: z.iso.datetime({ offset: true }).nullable().optional(),
     periodMonth: monthLabelSchema.optional(),
     currency: z.string().min(1).max(8).optional(),
     subtotal: moneySchema.optional(),

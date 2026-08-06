@@ -9,7 +9,6 @@ vi.mock("@/lib/ai", () => ({
 const VALID_RECEIPT = {
   isReceipt: true,
   merchant: "Carrefour",
-  purchasedAt: "2026-07-14T18:32:00",
   currency: "EGP",
   items: [
     {

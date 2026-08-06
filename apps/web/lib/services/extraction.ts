@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getExtractionProvider } from "@/lib/ai";
 import type { ReceiptImageInput } from "@/lib/ai/types";
 import { moneySchema } from "@/lib/api/schemas/common";
-import { EXTRACTION_SYSTEM_PROMPT_V2, buildCorrectionPrompt } from "@/lib/services/prompts";
+import { EXTRACTION_SYSTEM_PROMPT_V3, buildCorrectionPrompt } from "@/lib/services/prompts";
 
 /** Models sometimes return a bare number for money fields despite the prompt — normalize before
  * the strict "12.34" check so a merely-unformatted (but otherwise correct) answer isn't bounced
@@ -39,7 +39,6 @@ const ParsedReceiptItemSchema = z.object({
 export const ParsedReceiptSchema = z.object({
   isReceipt: z.boolean(),
   merchant: z.string().nullable().optional(),
-  purchasedAt: z.string().nullable().optional(),
   currency: z.string().nullable().optional(),
   items: z.array(ParsedReceiptItemSchema).default([]),
   subtotal: moneyFromModelSchema,
@@ -101,7 +100,7 @@ export async function extractReceipt(images: ReceiptImageInput[]): Promise<Extra
 
   const first = await provider.extract({
     images,
-    systemPrompt: EXTRACTION_SYSTEM_PROMPT_V2,
+    systemPrompt: EXTRACTION_SYSTEM_PROMPT_V3,
     deadlineMs,
   });
   const firstAttempt = tryParse(first.text);

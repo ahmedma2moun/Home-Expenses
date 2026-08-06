@@ -6,11 +6,6 @@ export function toPeriodMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
-/** Default month suggestion for the review screen: the receipt date, or now if unreadable. */
-export function suggestPeriodMonth(purchasedAt: Date | null, now: Date): Date {
-  return toPeriodMonth(purchasedAt ?? now);
-}
-
 /** Parses the wire format "YYYY-MM" (validated by monthLabelSchema) into a periodMonth Date. */
 export function parseMonthLabel(label: string): Date {
   const [year = 1970, month = 1] = label.split("-").map(Number);

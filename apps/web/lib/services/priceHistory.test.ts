@@ -50,7 +50,7 @@ function row(opts: {
   unitPrice: number;
   merchant: string;
   periodMonth: Date;
-  purchasedAt?: Date | null;
+  createdAt?: Date;
   orderId?: string;
   unit?: string | null;
 }) {
@@ -62,7 +62,7 @@ function row(opts: {
     order: {
       id: opts.orderId ?? `order-${opts.merchant}-${opts.periodMonth.toISOString()}`,
       merchant: opts.merchant,
-      purchasedAt: opts.purchasedAt ?? opts.periodMonth,
+      createdAt: opts.createdAt ?? opts.periodMonth,
       periodMonth: opts.periodMonth,
     },
   };
@@ -303,7 +303,7 @@ describe("getPriceWatchItems", () => {
           unitPrice: 30,
           merchant: "Spinneys",
           periodMonth: targetMonth,
-          purchasedAt: new Date(Date.UTC(2026, 6, 20)),
+          createdAt: new Date(Date.UTC(2026, 6, 20)),
           orderId: "order-second",
         }),
         row({
@@ -312,7 +312,7 @@ describe("getPriceWatchItems", () => {
           unitPrice: 24,
           merchant: "Spinneys",
           periodMonth: targetMonth,
-          purchasedAt: new Date(Date.UTC(2026, 6, 3)),
+          createdAt: new Date(Date.UTC(2026, 6, 3)),
           orderId: "order-first",
         }),
       ])
@@ -323,7 +323,7 @@ describe("getPriceWatchItems", () => {
           unitPrice: 30,
           merchant: "Spinneys",
           periodMonth: targetMonth,
-          purchasedAt: new Date(Date.UTC(2026, 6, 20)),
+          createdAt: new Date(Date.UTC(2026, 6, 20)),
           orderId: "order-second",
         }),
         row({
@@ -332,7 +332,7 @@ describe("getPriceWatchItems", () => {
           unitPrice: 24,
           merchant: "Spinneys",
           periodMonth: targetMonth,
-          purchasedAt: new Date(Date.UTC(2026, 6, 3)),
+          createdAt: new Date(Date.UTC(2026, 6, 3)),
           orderId: "order-first",
         }),
       ]);

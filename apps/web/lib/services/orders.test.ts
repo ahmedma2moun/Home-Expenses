@@ -39,7 +39,6 @@ vi.mock("@/lib/services/monthlySummary", () => ({
 function confirmInput(overrides: Record<string, unknown> = {}) {
   return ConfirmReceiptRequestSchema.parse({
     merchant: "Carrefour",
-    purchasedAt: null,
     periodMonth: "2026-07",
     currency: "EGP",
     subtotal: "120.00",

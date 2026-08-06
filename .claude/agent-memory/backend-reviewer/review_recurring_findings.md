@@ -23,9 +23,21 @@ Recurring findings in `apps/web` reviews. Check these before doing anything else
    `userId` scoping (CLAUDE.md rule 2) is never actually verified by a test even when the code is
    correct.
 
-**Why:** these are systematic gaps in this codebase's shape, not one-off mistakes, and each has
-been found in at least one review. Items 1, 2 and 5 are the ones most likely to be a real bug.
+6. **`Order.createdAt` (save time) is not `periodMonth` (accounting month), and the two diverge for
+   backfilled/manual orders.** Any "most recent purchase" ordering that keys on `createdAt` alone
+   gets the wrong "previous price" when a user scans an older receipt after a newer one. Economic
+   recency in `priceHistory.ts` should sort `periodMonth desc, createdAt desc, id desc`; only the
+   orders *list* (`orderQueries.ts`) legitimately sorts by `createdAt` alone.
+7. **`Order` has no index on the column the list sorts by.** Indexes are `([userId, periodMonth])`
+   and `([userId, merchant])`; unfiltered `GET /orders` filters on `userId` and sorts on something
+   else, so it plans a sort. Flag whenever the list's sort key changes.
+8. **Prompt-version docs go stale one file behind.** When `docs/prompts/extraction.vN.md` is added,
+   the previous version's `**Status:** live` line is often left un-flipped to "superseded by vN".
+   Check the *old* file, not just the new one.
 
-**How to apply:** grep the diff for `merchant ===`, `unitPrice`, `findMany`, and
+**Why:** these are systematic gaps in this codebase's shape, not one-off mistakes, and each has
+been found in at least one review. Items 1, 2, 5 and 6 are the ones most likely to be a real bug.
+
+**How to apply:** grep the diff for `merchant ===`, `unitPrice`, `findMany`, `createdAt`, and
 `lib/api/schemas` imports before line-by-line reading. See [[review-auth-is-dev-stub]] for the one
 finding that should *not* be re-raised as blocking.

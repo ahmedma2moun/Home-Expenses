@@ -80,7 +80,9 @@ model Order {
   userId      String
   receiptId   String?  @unique
   merchant    String
-  purchasedAt DateTime? // actual receipt date/time, nullable
+  purchasedAt DateTime? // DEPRECATED — no longer read or written (extraction v3 dropped it from
+  // the output contract; the app orders by createdAt now). Column kept per the db-migration skill's
+  // expand/contract rule — drop it in a later, separate migration once this deploy is out.
   periodMonth DateTime // normalized YYYY-MM-01 — BR-4
   currency    String
   subtotal    Decimal  @db.Decimal(12, 2)

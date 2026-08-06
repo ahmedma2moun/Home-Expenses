@@ -57,7 +57,6 @@ struct OrderEditView: View {
             Section("Order") {
                 TextField("Merchant", text: $viewModel.merchant)
                 monthRow
-                purchaseDateRow
                 TextField("Currency", text: $viewModel.currency)
                     .textInputAutocapitalization(.characters)
             }
@@ -110,17 +109,6 @@ struct OrderEditView: View {
             .accessibilityLabel("Next month")
         }
         .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var purchaseDateRow: some View {
-        if let purchasedAt = Binding($viewModel.purchasedAt) {
-            DatePicker("Purchased", selection: purchasedAt, displayedComponents: .date)
-        } else {
-            Button("Add purchase date") {
-                viewModel.addPurchaseDate()
-            }
-        }
     }
 
     private var itemsSection: some View {

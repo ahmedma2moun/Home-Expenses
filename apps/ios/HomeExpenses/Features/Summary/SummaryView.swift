@@ -165,7 +165,7 @@ struct SummaryView: View {
     }
 
     /// The expanded body: items in this category for the selected month, grouped by the order
-    /// they were bought in, newest purchase first — mirrors `GET /orders/by-category`.
+    /// they were bought in, newest-created first — mirrors `GET /orders/by-category`.
     @ViewBuilder
     private func categoryDetail(_ categoryId: String) -> some View {
         if viewModel.loadingCategoryId == categoryId {

@@ -9,6 +9,7 @@ See the `prompt-change` skill for the required procedure.
 |---|---|---|---|---|
 | v1 | 2026-07-27 | Initial contract (PROJECT_SPEC.md §7.2) | No baseline yet | Drafted, not yet wired into code (M1) |
 | v2 | 2026-08-07 | Split each item's `name` into `brand` + `name` so brand and product are distinct fields instead of one free-text string | No baseline yet — fixtures still empty | Live in code |
+| v3 | 2026-08-07 | Drop `purchasedAt` from the output contract — the printed receipt date was rarely legible/reliable and the app now orders by `Order.createdAt` instead | No baseline yet — fixtures still empty | Live in code |
 
 ## comparison
 

@@ -13,7 +13,6 @@ function orderWithItems(overrides: Record<string, unknown> = {}) {
     id: "order-1",
     receiptId: "receipt-1",
     merchant: "Carrefour",
-    purchasedAt: new Date("2026-07-14T18:32:00.000Z"),
     periodMonth: JULY,
     currency: "EGP",
     subtotal: decimal("120.00"),
@@ -80,14 +79,6 @@ describe("toOrderSummary", () => {
       total: "120.00",
       itemCount: 4,
     });
-  });
-
-  it("returns null purchasedAt as null, not a formatted date", () => {
-    const dto = toOrderSummary(
-      orderWithItems({ purchasedAt: null, _count: { items: 0 } }) as never,
-    );
-
-    expect(dto.purchasedAt).toBeNull();
   });
 });
 

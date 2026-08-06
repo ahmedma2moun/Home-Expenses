@@ -304,7 +304,6 @@ struct ReviewView: View {
             parsed: ParsedReceiptDTO(
                 isReceipt: true,
                 merchant: "Carrefour",
-                purchasedAt: "2026-07-14T18:32:00",
                 currency: "EGP",
                 items: [],
                 subtotal: nil,

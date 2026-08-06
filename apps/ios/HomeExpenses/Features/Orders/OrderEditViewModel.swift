@@ -6,7 +6,6 @@ import Foundation
 @MainActor
 final class OrderEditViewModel: ObservableObject {
     @Published var merchant = ""
-    @Published var purchasedAt: Date?
     @Published var periodMonth = MonthLabel.startOfMonth(Date())
     @Published var currency = "EGP"
     @Published var items: [EditableItem] = []
@@ -91,12 +90,6 @@ final class OrderEditViewModel: ObservableObject {
         periodMonth = Calendar.current.date(byAdding: .month, value: months, to: periodMonth) ?? periodMonth
     }
 
-    /// Orders saved before the receipt date could be read have none; default to the month being
-    /// billed rather than today, which may sit in a different month entirely.
-    func addPurchaseDate() {
-        purchasedAt = periodMonth
-    }
-
     func save() async {
         guard !items.isEmpty else {
             errorMessage = "An order needs at least one item. Delete the order instead."
@@ -129,7 +122,6 @@ final class OrderEditViewModel: ObservableObject {
 
     private func apply(_ order: OrderDetailDTO, periodMonth month: Date) {
         merchant = order.merchant
-        purchasedAt = order.purchasedAt.flatMap(FlexibleDateParser.parse)
         periodMonth = month
         currency = order.currency
         tax = order.tax.value
@@ -154,7 +146,6 @@ final class OrderEditViewModel: ObservableObject {
     private func updateRequest() -> OrderUpdateRequest {
         OrderUpdateRequest(
             merchant: merchant,
-            purchasedAt: purchasedAt.map { ISO8601DateFormatter.wire.string(from: $0) },
             periodMonth: MonthLabel.format(periodMonth),
             currency: currency,
             subtotal: subtotal.wireString,

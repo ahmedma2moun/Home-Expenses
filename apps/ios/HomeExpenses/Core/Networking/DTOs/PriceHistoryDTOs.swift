@@ -2,18 +2,18 @@ import Foundation
 
 /// One past purchase of an item. Shared by `GET /api/v1/items/price-history`,
 /// `GET /api/v1/analytics/price-watch`, and `POST /api/v1/items/price-check`
-/// (lib/services/priceHistory.ts). `purchasedAt` stays `String` and goes through
+/// (lib/services/priceHistory.ts). `createdAt` stays `String` and goes through
 /// `FlexibleDateParser`, same reasoning as `OrderSummaryDTO`.
 struct PriceHistoryEntryDTO: Decodable, Sendable {
     let orderId: String
     let merchant: String
     let brand: String?
     let unitPrice: MoneyString
-    let purchasedAt: String?
+    let createdAt: String
     let periodMonth: String
 
     var displayDate: Date? {
-        purchasedAt.flatMap(FlexibleDateParser.parse)
+        FlexibleDateParser.parse(createdAt)
     }
 }
 

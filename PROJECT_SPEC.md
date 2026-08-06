@@ -170,7 +170,9 @@ has to be invoked by hand (or by an agent), not triggered by CI.
 
 ### BR-4 — User chooses the accounting month
 - `Order.periodMonth` is a `DATE` normalized to the first day of the month (`YYYY-MM-01`).
-- Default suggestion: month of the extracted receipt date; if no date extracted, current month.
+- Default suggestion: the current month — extraction no longer reads a receipt date, so there's
+  nothing else to suggest from (see the extraction output contract in §7.2, and
+  `docs/prompts/extraction.v3.md`).
 - The review screen always shows a month picker so the user can reassign (e.g. a receipt from the
   31st charged to the next month's budget).
 - A saved order can be moved to another month later; moving invalidates cached summaries/analyses
@@ -266,7 +268,6 @@ model Order {
   userId        String
   receiptId     String?     @unique
   merchant      String
-  purchasedAt   DateTime?               // actual receipt date/time, nullable
   periodMonth   DateTime                // normalized YYYY-MM-01 — BR-4
   currency      String
   subtotal      Decimal     @db.Decimal(12, 2)
@@ -418,7 +419,6 @@ Output contract:
 {
   "isReceipt": true,
   "merchant": "Carrefour",
-  "purchasedAt": "2026-07-14T18:32:00",
   "currency": "EGP",
   "items": [
     {
@@ -563,7 +563,8 @@ duplicate orders from retries on poor connectivity.
    reorderable (position matters), each removable. "Analyze" starts upload.
 3. **Parsing** — progress state with cancel; polls receipt status; handles failure with retry.
 4. **Review & Confirm** — the core screen:
-   - Header: merchant, receipt date, currency, **month picker** (BR-4), grand total.
+   - Header: merchant, currency, **month picker** (BR-4), grand total. No receipt-date field — the
+     order's date is `Order.createdAt` (when it was saved), not anything read off the receipt.
    - Item list: inline-editable name, qty, unit price, line total; tap the category chip to change it.
    - Low-confidence rows highlighted; a banner shows `Σ items + tax ≠ total` mismatches.
    - Swipe to delete an item; "+ Add item" for anything the parse missed.

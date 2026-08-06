@@ -23,7 +23,6 @@ export interface OrderItemDto {
 export interface OrderSummaryDto {
   id: string;
   merchant: string;
-  purchasedAt: string | null;
   periodMonth: string;
   currency: string;
   total: string;
@@ -52,7 +51,7 @@ export interface OrderListPage {
 export interface CategoryOrderGroupDto {
   orderId: string;
   merchant: string;
-  purchasedAt: string | null;
+  createdAt: string;
   currency: string;
   items: OrderItemDto[];
 }
@@ -72,7 +71,6 @@ export function toOrderSummary(order: OrderWithItemCount): OrderSummaryDto {
   return {
     id: order.id,
     merchant: order.merchant,
-    purchasedAt: order.purchasedAt?.toISOString() ?? null,
     periodMonth: formatMonthLabel(order.periodMonth),
     currency: order.currency,
     total: order.total.toFixed(2),
@@ -87,7 +85,6 @@ export function toOrderDto(order: OrderWithItems): OrderDto {
     id: order.id,
     receiptId: order.receiptId,
     merchant: order.merchant,
-    purchasedAt: order.purchasedAt?.toISOString() ?? null,
     periodMonth: formatMonthLabel(order.periodMonth),
     currency: order.currency,
     subtotal: order.subtotal.toFixed(2),
@@ -108,7 +105,7 @@ export function toCategoryOrderGroup(order: OrderWithItems): CategoryOrderGroupD
   return {
     orderId: order.id,
     merchant: order.merchant,
-    purchasedAt: order.purchasedAt?.toISOString() ?? null,
+    createdAt: order.createdAt.toISOString(),
     currency: order.currency,
     items: order.items.map(toOrderItemDto),
   };

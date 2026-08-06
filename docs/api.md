@@ -173,7 +173,6 @@ Response `200`:
     "parsedPayload": {
       "isReceipt": true,
       "merchant": "Carrefour",
-      "purchasedAt": "2026-07-14T18:32:00",
       "currency": "EGP",
       "items": [
         {
@@ -243,7 +242,6 @@ Request:
 ```json
 {
   "merchant": "Carrefour",
-  "purchasedAt": "2026-07-14T18:32:00.000Z",
   "periodMonth": "2026-07",
   "currency": "EGP",
   "subtotal": "612.00",
@@ -331,8 +329,10 @@ below). Every amount in this response is in this currency.
 The month list behind the app's Orders screen. Query parameters: `month` (`YYYY-MM`, omitted =
 every month), `cursor` (the `nextCursor` of the previous page), `limit` (1–100, default 50).
 
-Orders come back newest purchase first; orders with no readable receipt date sort last. Rows carry
-an item count rather than the items themselves — fetch `GET /orders/:id` for those.
+Orders come back newest-created first (`Order.createdAt` descending). There is no separate receipt
+date on the wire — extraction no longer parses one (docs/prompts/extraction.v3.md), so `createdAt`
+(when the order was saved) is the only date an order carries. Rows carry an item count rather than
+the items themselves — fetch `GET /orders/:id` for those.
 
 Response `200`:
 
@@ -343,7 +343,6 @@ Response `200`:
       {
         "id": "clx1order",
         "merchant": "Carrefour",
-        "purchasedAt": "2026-07-14T18:32:00.000Z",
         "periodMonth": "2026-07",
         "currency": "EGP",
         "total": "650.00",
@@ -370,7 +369,6 @@ Response `200` — the order with its line items, in `position` order:
     "id": "clx1order",
     "receiptId": "clx1receipt",
     "merchant": "Carrefour",
-    "purchasedAt": "2026-07-14T18:32:00.000Z",
     "periodMonth": "2026-07",
     "currency": "EGP",
     "subtotal": "612.00",
@@ -417,7 +415,7 @@ materialized `MonthlySummary`, and an unscoped scan across every month a user ow
 this endpoint offers. It doesn't paginate: a month's items in one category is bounded enough that a
 cursor would be premature.
 
-Orders come back newest purchase first, same ordering as `GET /orders`; items within an order come
+Orders come back newest-created first, same ordering as `GET /orders`; items within an order come
 back in `position` order. An order with no items in the requested category is simply absent from
 the list.
 
@@ -432,7 +430,7 @@ Response `200`:
       {
         "orderId": "clx1order",
         "merchant": "Carrefour",
-        "purchasedAt": "2026-07-14T18:32:00.000Z",
+        "createdAt": "2026-07-14T19:02:11.412Z",
         "currency": "EGP",
         "items": [
           {
@@ -480,11 +478,11 @@ Response `200`:
   "data": {
     "itemName": "Full Cream Milk",
     "history": [
-      { "orderId": "clx3order", "merchant": "Carrefour", "brand": "Milkman", "unitPrice": "24.00", "purchasedAt": "2026-07-14T18:32:00.000Z", "periodMonth": "2026-07" },
-      { "orderId": "clx2order", "merchant": "Metro", "brand": "Almarai", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
-      { "orderId": "clx1order", "merchant": "Carrefour", "brand": "Milkman", "unitPrice": "20.00", "purchasedAt": "2026-05-01T09:00:00.000Z", "periodMonth": "2026-05" }
+      { "orderId": "clx3order", "merchant": "Carrefour", "brand": "Milkman", "unitPrice": "24.00", "createdAt": "2026-07-14T19:02:11.412Z", "periodMonth": "2026-07" },
+      { "orderId": "clx2order", "merchant": "Metro", "brand": "Almarai", "unitPrice": "18.00", "createdAt": "2026-06-02T10:15:00.000Z", "periodMonth": "2026-06" },
+      { "orderId": "clx1order", "merchant": "Carrefour", "brand": "Milkman", "unitPrice": "20.00", "createdAt": "2026-05-01T09:20:00.000Z", "periodMonth": "2026-05" }
     ],
-    "cheapest": { "orderId": "clx2order", "merchant": "Metro", "brand": "Almarai", "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+    "cheapest": { "orderId": "clx2order", "merchant": "Metro", "brand": "Almarai", "unitPrice": "18.00", "createdAt": "2026-06-02T10:15:00.000Z", "periodMonth": "2026-06" },
     "priceCreep": {
       "previousMerchant": "Carrefour",
       "previousUnitPrice": "20.00",
@@ -532,7 +530,7 @@ compared). Response `200`, one result per **unique** normalized item name in the
   "data": [
     {
       "name": "tomatoes 1kg",
-      "cheapest": { "orderId": "clx2order", "merchant": "Metro", "brand": null, "unitPrice": "18.00", "purchasedAt": "2026-06-02T10:00:00.000Z", "periodMonth": "2026-06" },
+      "cheapest": { "orderId": "clx2order", "merchant": "Metro", "brand": null, "unitPrice": "18.00", "createdAt": "2026-06-02T10:15:00.000Z", "periodMonth": "2026-06" },
       "priceCreep": {
         "previousMerchant": "Carrefour",
         "previousUnitPrice": "20.00",

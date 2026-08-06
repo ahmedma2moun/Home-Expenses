@@ -24,7 +24,6 @@ final class ReviewViewModel: ObservableObject {
     static let lowConfidenceThreshold = 0.6
 
     @Published var merchant: String
-    @Published var purchasedAt: Date?
     @Published var periodMonth: Date
     @Published var currency: String
     @Published var items: [EditableItem]
@@ -80,13 +79,10 @@ final class ReviewViewModel: ObservableObject {
     private let originalTotal: Decimal?
 
     init(receiptId: String, parsed: ParsedReceiptDTO) {
-        let parsedDate = parsed.purchasedAt.flatMap(FlexibleDateParser.parse)
-
         self.receiptId = receiptId
         merchant = parsed.merchant ?? ""
         currency = parsed.currency ?? "EGP"
-        purchasedAt = parsedDate
-        periodMonth = MonthLabel.startOfMonth(parsedDate ?? Date())
+        periodMonth = MonthLabel.startOfMonth(Date())
         tax = parsed.tax?.value ?? 0
         discount = parsed.discount?.value ?? 0
         originalTotal = parsed.total?.value
@@ -247,7 +243,6 @@ final class ReviewViewModel: ObservableObject {
 
         let request = ConfirmReceiptRequest(
             merchant: merchant,
-            purchasedAt: purchasedAt.map { ISO8601DateFormatter.wire.string(from: $0) },
             periodMonth: MonthLabel.format(periodMonth),
             currency: currency,
             subtotal: subtotal.wireString,

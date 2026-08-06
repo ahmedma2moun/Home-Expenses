@@ -2,13 +2,12 @@ import Foundation
 
 /// Mirrors `GET /api/v1/orders` — one row of the month list, without its line items
 /// (lib/services/orderManagement.ts).
-/// Timestamps stay `String` on the DTO and go through `FlexibleDateParser`: the backend's
+/// `createdAt` stays `String` on the DTO and goes through `FlexibleDateParser`: the backend's
 /// `toISOString()` carries fractional seconds, which `JSONDecoder`'s stock `.iso8601` strategy
 /// rejects outright.
 struct OrderSummaryDTO: Decodable, Identifiable, Sendable {
     let id: String
     let merchant: String
-    let purchasedAt: String?
     let periodMonth: String
     let currency: String
     let total: MoneyString
@@ -16,18 +15,22 @@ struct OrderSummaryDTO: Decodable, Identifiable, Sendable {
     let source: String
     let createdAt: String
 
-    /// The receipt's own date when it was readable, otherwise the day the order was saved.
+    /// The day the order was saved — there is no separate receipt date (extraction no longer
+    /// reads one; see `docs/prompts/extraction.v3.md`).
     var displayDate: Date? {
-        purchasedAt.flatMap(FlexibleDateParser.parse) ?? FlexibleDateParser.parse(createdAt)
+        FlexibleDateParser.parse(createdAt)
     }
 
     var itemCountLabel: String {
         itemCount == 1 ? "1 item" : "\(itemCount) items"
     }
 
+    /// Prefixed "Saved" rather than shown bare: this list is already scoped to one accounting
+    /// month, and an order confirmed after the fact (a July receipt saved in August) would
+    /// otherwise show a date that looks like it belongs to the wrong month.
     var subtitle: String {
         guard let displayDate else { return itemCountLabel }
-        return "\(displayDate.formatted(date: .abbreviated, time: .omitted)) · \(itemCountLabel)"
+        return "Saved \(displayDate.formatted(date: .abbreviated, time: .omitted)) · \(itemCountLabel)"
     }
 }
 
@@ -66,7 +69,6 @@ struct OrderDetailDTO: Decodable, Sendable {
     let id: String
     let receiptId: String?
     let merchant: String
-    let purchasedAt: String?
     let periodMonth: String
     let currency: String
     let subtotal: MoneyString
@@ -85,7 +87,6 @@ struct OrderDetailDTO: Decodable, Sendable {
 /// whole list, and the backend then requires `subtotal` and `total` alongside it.
 struct OrderUpdateRequest: Encodable, Sendable {
     var merchant: String?
-    var purchasedAt: String?
     var periodMonth: String?
     var currency: String?
     var subtotal: String?
@@ -117,14 +118,14 @@ struct OrderDeleteResponse: Decodable, Sendable {
 struct CategoryOrderGroupDTO: Decodable, Identifiable, Sendable {
     let orderId: String
     let merchant: String
-    let purchasedAt: String?
+    let createdAt: String
     let currency: String
     let items: [OrderItemDTO]
 
     var id: String { orderId }
 
     var displayDate: Date? {
-        purchasedAt.flatMap(FlexibleDateParser.parse)
+        FlexibleDateParser.parse(createdAt)
     }
 }
 

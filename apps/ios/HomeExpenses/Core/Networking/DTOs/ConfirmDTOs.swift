@@ -14,7 +14,6 @@ struct ConfirmOrderItemRequest: Encodable, Sendable {
 
 struct ConfirmReceiptRequest: Encodable, Sendable {
     let merchant: String
-    let purchasedAt: String?
     let periodMonth: String
     let currency: String
     let subtotal: String

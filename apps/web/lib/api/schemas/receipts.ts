@@ -37,7 +37,6 @@ export const ConfirmReceiptRequestSchema = z.object({
   // header), and losing a whole confirmed order to a 400 is worse than storing a placeholder.
   // `confirmReceipt` substitutes UNKNOWN_MERCHANT — the wire contract stays "a string".
   merchant: z.string().trim().max(200),
-  purchasedAt: z.iso.datetime({ offset: true }).nullable().optional(),
   periodMonth: monthLabelSchema,
   currency: z.string().min(1).max(8),
   subtotal: moneySchema,

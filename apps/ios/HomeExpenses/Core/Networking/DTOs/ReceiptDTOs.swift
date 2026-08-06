@@ -46,7 +46,6 @@ struct ParsedReceiptItemDTO: Decodable, Sendable {
 struct ParsedReceiptDTO: Decodable, Sendable {
     let isReceipt: Bool
     let merchant: String?
-    let purchasedAt: String?
     let currency: String?
     let items: [ParsedReceiptItemDTO]
     let subtotal: MoneyString?

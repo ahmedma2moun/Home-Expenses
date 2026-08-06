@@ -96,7 +96,6 @@ function extractionOutcome(overrides: Record<string, unknown> = {}) {
     result: {
       isReceipt: true,
       merchant: "Carrefour",
-      purchasedAt: null,
       currency: "EGP",
       items: [
         {

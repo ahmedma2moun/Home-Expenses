@@ -29,7 +29,7 @@ export interface PriceHistoryEntry {
   merchant: string;
   brand: string | null;
   unitPrice: string;
-  purchasedAt: string | null;
+  createdAt: string;
   periodMonth: string;
 }
 
@@ -67,7 +67,7 @@ export interface DraftItemPriceCheck {
 
 type OrderItemWithOrder = Prisma.OrderItemGetPayload<{
   include: {
-    order: { select: { id: true; merchant: true; purchasedAt: true; periodMonth: true } };
+    order: { select: { id: true; merchant: true; createdAt: true; periodMonth: true } };
   };
 }>;
 
@@ -79,14 +79,15 @@ function isPricedRow(row: OrderItemWithOrder): row is PricedRow {
   return row.unitPrice !== null && row.normalizedName !== null;
 }
 
-function purchaseTime(row: PricedRow): number {
-  return (row.order.purchasedAt ?? row.order.periodMonth).getTime();
-}
-
-/** Newest purchase first; a stable id tiebreak keeps ties deterministic. */
+/** Newest accounting month first — `periodMonth`, not `createdAt`, is what "recent" means for a
+ *  purchase (a receipt confirmed late still belongs to the month it was bought in). `createdAt`
+ *  only breaks ties *within* a month; a stable id tiebreak covers same-instant saves. */
 function sortByRecency(rows: PricedRow[]): PricedRow[] {
   return [...rows].sort(
-    (a, b) => purchaseTime(b) - purchaseTime(a) || b.order.id.localeCompare(a.order.id),
+    (a, b) =>
+      b.order.periodMonth.getTime() - a.order.periodMonth.getTime() ||
+      b.order.createdAt.getTime() - a.order.createdAt.getTime() ||
+      b.order.id.localeCompare(a.order.id),
   );
 }
 
@@ -106,7 +107,7 @@ function toPriceHistoryEntry(row: PricedRow): PriceHistoryEntry {
     merchant: row.order.merchant,
     brand: row.brand,
     unitPrice: row.unitPrice.toFixed(2),
-    purchasedAt: row.order.purchasedAt?.toISOString() ?? null,
+    createdAt: row.order.createdAt.toISOString(),
     periodMonth: formatMonthLabel(row.order.periodMonth),
   };
 }
@@ -168,12 +169,12 @@ async function loadPricedRows(userId: string, filter: PricedRowFilter): Promise<
       },
     },
     include: {
-      order: { select: { id: true, merchant: true, purchasedAt: true, periodMonth: true } },
+      order: { select: { id: true, merchant: true, createdAt: true, periodMonth: true } },
     },
     // Not a real pagination contract — just a ceiling so one item name (or a batch of them) can't
-    // pull an unbounded payload into memory. Re-sorted in JS below regardless, since `purchasedAt`
-    // can be null and needs its own "fall back to periodMonth" ordering rule.
-    orderBy: { order: { purchasedAt: "desc" } },
+    // pull an unbounded payload into memory. Ordered the same way `sortByRecency` re-sorts below
+    // (month first, then createdAt), so the ceiling drops the oldest *months*, not the oldest saves.
+    orderBy: [{ order: { periodMonth: "desc" } }, { order: { createdAt: "desc" } }],
     take: MAX_PRICED_ROWS,
   });
   return rows.filter(isPricedRow);

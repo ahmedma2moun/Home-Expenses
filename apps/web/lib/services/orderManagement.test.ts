@@ -62,14 +62,12 @@ function decimal(value: string) {
 
 const JULY = new Date(Date.UTC(2026, 6, 1));
 const AUGUST = new Date(Date.UTC(2026, 7, 1));
-const PURCHASED_AT = new Date("2026-07-14T18:32:00.000Z");
 
 function orderRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "order-1",
     receiptId: null,
     merchant: "Carrefour",
-    purchasedAt: PURCHASED_AT,
     periodMonth: JULY,
     currency: "EGP",
     subtotal: decimal("120.00"),

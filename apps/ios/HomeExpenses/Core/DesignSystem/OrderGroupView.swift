@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// One order's items within a category drilldown — merchant, purchase date, and each item's name
-/// and line total. Shared by the Home tab's per-category expansion and the Analytics tab's
-/// per-category, per-month expansion, both of which mirror `GET /orders/by-category`.
+/// One order's items within a category drilldown — merchant, the date it was saved, and each
+/// item's name and line total. Shared by the Home tab's per-category expansion and the Analytics
+/// tab's per-category, per-month expansion, both of which mirror `GET /orders/by-category`.
 struct OrderGroupView: View {
     let group: CategoryOrderGroupDTO
 
@@ -16,6 +16,7 @@ struct OrderGroupView: View {
                     Text(displayDate.formatted(date: .abbreviated, time: .omitted))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("Saved \(displayDate.formatted(date: .abbreviated, time: .omitted))")
                 }
             }
             ForEach(group.items) { item in

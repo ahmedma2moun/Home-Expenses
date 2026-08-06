@@ -1,6 +1,6 @@
 import Foundation
 
-/// Backs the Orders screen: the saved orders of one accounting month, newest purchase first,
+/// Backs the Orders screen: the saved orders of one accounting month, newest-created first,
 /// with delete (PROJECT_SPEC.md §10, screen 5). Editing an order lives in `OrderEditViewModel`.
 @MainActor
 final class OrdersViewModel: ObservableObject {
