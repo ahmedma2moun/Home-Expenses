@@ -16,3 +16,4 @@ See the `prompt-change` skill for the required procedure.
 | Version | Date | Hypothesis | Metric deltas | Decision |
 |---|---|---|---|---|
 | v1 | 2026-07-27 | Initial contract (PROJECT_SPEC.md §7.3) | No baseline yet | Drafted, not yet wired into code (M5) |
+| v1 | 2026-08-08 | Same contract — first wiring, not a content change (`POST /analytics/compare`, Insights tab) | No baseline yet — `eval:comparison` harness added, fixtures still empty | Live in code |

@@ -18,10 +18,11 @@ elsewhere — trust these over this file when they disagree:
 
 Headline deviations: **there is no authentication** (§8) — every request resolves to one hardcoded
 seeded user; **there is no blob storage** — receipt images travel as base64 in the request body
-instead of the signed-upload flow in §2/§9; the AI **month-comparison feature doesn't exist**
-(`POST /analytics/compare` is a stub, no `MonthComparison` logic is implemented); and the iOS app's
-actual screens (§10) differ from what's below — no Settings screen, no Swift Charts trend view, no
-offline/SwiftData cache.
+instead of the signed-upload flow in §2/§9; the AI month-comparison feature (`POST
+/analytics/compare`, `MonthComparison`) **is now implemented**, including an iOS Insights tab —
+see `docs/api.md` and `apps/ios/HomeExpenses/Features/Insights/`, not §10 below, for the current
+shape; and the rest of the iOS app's actual screens (§10) still differ from what's below — no
+Settings screen, no Swift Charts trend view, no offline/SwiftData cache.
 
 ---
 
@@ -501,8 +502,8 @@ Reference: https://docs.claude.com/en/api/overview
 > **This table is the original design and no longer matches the implemented API in several rows —
 > see `docs/api.md` for the accurate, current contract.** In short: `/uploads/token` was never
 > built (there's no blob storage — images ride as base64 in the `POST /receipts` body instead, see
-> §2/§8); `/auth/*` and `POST /analytics/compare`/`POST /orders` (manual entry) are still `501`
-> stubs; every other row below is real and live, including several (`GET /categories`,
+> §2/§8); `/auth/*` and `POST /orders` (manual entry) are still `501` stubs; every other row below
+> is real and live, including several (`GET /categories`,
 > `GET /analytics/month/:month`, the whole `/receipts/*` family) that this table doesn't do justice
 > to with full request/response shapes — `docs/api.md` has those.
 
@@ -545,13 +546,15 @@ duplicate orders from retries on poor connectivity.
 
 **Target:** iOS 17+, SwiftUI, MVVM, `async/await`, no third-party networking dependency (URLSession).
 
-> **Current build vs. this spec:** the app has three tabs — **Home** (`Features/Summary`, not a
-> separate top-level screen split out the way §2 implied), **Orders**, **Analytics** — plus
-> Capture → Parsing → Review as a modal flow launched from Home's "+" button, not tabs of their
-> own. No **Settings** screen exists at all. **Analytics** is a month-over-month category comparison
-> with a drill-down, not the "totals, category bars, Swift Charts trend + AI compare sheet" screen
-> described below — there's no Swift Charts import anywhere and no AI comparison UI (the backend
-> endpoint it would call, `POST /analytics/compare`, is itself unimplemented). **Orders** has no
+> **Current build vs. this spec:** the app has four tabs — **Home** (`Features/Summary`, not a
+> separate top-level screen split out the way §2 implied), **Orders**, **Analytics**, **Insights**
+> — plus Capture → Parsing → Review as a modal flow launched from Home's "+" button, not tabs of
+> their own. No **Settings** screen exists at all. **Analytics** is a month-over-month category
+> comparison with a drill-down, not the "totals, category bars, Swift Charts trend + AI compare
+> sheet" screen described below — there's no Swift Charts import anywhere, and the AI comparison UI
+> lives in its own **Insights** tab (`Features/Insights/`) rather than an Analytics sheet: a
+> manually-triggered narrative for the current month vs. a trailing 3-month baseline, plus an
+> explicit two-month compare, both hitting the now-live `POST /analytics/compare`. **Orders** has no
 > search or category filter. There's no Sign in with Apple, no JWT/401-refresh handling (there's no
 > auth at all — see §8), and no SwiftData/offline cache — `Core/Persistence/` doesn't exist. The
 > image pipeline (downscale/JPEG-encode/EXIF-strip) *is* implemented, in `Core/Media/`. See

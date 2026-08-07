@@ -23,9 +23,9 @@ what's actually built in several places (auth, image upload, iOS screens) — th
 ## Status (M1–M4 backend, no auth yet)
 
 - **Backend:** almost all of `/api/v1` is real and working, not stubbed — receipts upload/parse/
-  confirm/reparse/discard, orders list/detail/edit/delete + category drill-down, categories, and
-  month/trend analytics all read and write real data. Still stubbed `501`: `POST /orders` (manual
-  entry), `POST /analytics/compare` (AI month-vs-month narrative), `POST /auth/apple`,
+  confirm/reparse/discard, orders list/detail/edit/delete + category drill-down, categories,
+  month/trend analytics, and `POST /analytics/compare` (AI month-vs-month narrative) all read and
+  write real data. Still stubbed `501`: `POST /orders` (manual entry), `POST /auth/apple`,
   `POST /auth/refresh`. See `docs/api.md` for the full, accurate route table.
   - **No authentication is implemented.** `lib/auth/` is an empty directory and both auth routes are
     stubs. Every request is resolved to one hardcoded seeded user (`lib/api/devUser.ts`,
@@ -296,9 +296,9 @@ The Xcode project is generated, not hand-authored: `apps/ios/project.yml` (xcode
   inputs aren't used for training). See `AI_PROVIDER.md` §3.
 - The biggest cost/quota lever is **image size** — the client downscales receipts before upload.
 - `RATE_LIMIT_PARSES_PER_DAY` is declared in `.env.example` but **not enforced by any code yet** —
-  don't rely on it to cap spend. The month-comparison endpoint (`POST /analytics/compare`) that
-  would cache narrative results is itself still a `501` stub, so there's no comparison cost to cache
-  against either.
+  don't rely on it to cap spend. `POST /analytics/compare` is live and caches its narrative results
+  in `MonthComparison`, but it's manually triggered only (no route calls it automatically) and has
+  no rate limit of its own either — the cache plus the manual trigger are the only cost control.
 - Token usage (`inputTokens`/`outputTokens`/`latencyMs`) is persisted per receipt on the `Receipt`
   row when the provider reports it. There is no `/api/v1/admin/usage` endpoint — that's aspirational.
 

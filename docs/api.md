@@ -19,8 +19,7 @@ web clients talk to.
   and `POST /receipts/:id/reparse` — there is no `/uploads/token` route and no blob keys anywhere in
   this API. See `POST /receipts` below.
 - **Status.** Most routes are real, working implementations, not stubs — see the table's "Status"
-  column. `POST /orders` (manual entry), `POST /analytics/compare` (AI narrative), and both
-  `/auth/*` routes are still `501` stubs.
+  column. `POST /orders` (manual entry) and both `/auth/*` routes are still `501` stubs.
 
 | Method | Path | Auth (planned) | Status | Purpose |
 |---|---|---|---|---|
@@ -43,7 +42,7 @@ web clients talk to.
 | `GET` | `/analytics/month/:month` | required | **live** | Totals, per-category breakdown for one month. See below |
 | `GET` | `/analytics/trends?months=12` | required | **live** | Series of monthly totals + per-category series |
 | `GET` | `/analytics/price-watch?month=` | required | **live** | Items bought this month whose price jumped at the same merchant. See below |
-| `POST` | `/analytics/compare` | required | **stub (501)** | `{ monthA, monthB, refresh? }` → cached or fresh AI narrative — not implemented, no `MonthComparison` logic exists |
+| `POST` | `/analytics/compare` | required | **live** | `{ monthA?, monthB, refresh? }` → cached or fresh AI narrative. Omitting `monthA` compares against a trailing 3-month baseline instead of a second real month. See below |
 | `GET` | `/health` | none | **live** | Liveness + DB + AI provider reachability |
 | `POST` | `/echo` | debug token | **live** | Deploy smoke test — round-trips a question through the configured AI provider (not part of the product API) |
 
@@ -681,7 +680,56 @@ Response `200`:
 
 An empty array means nothing crossed the threshold this month — not an error.
 
-## Stub error shape (`POST /orders`, `POST /analytics/compare`, `POST /auth/apple`, `POST /auth/refresh`)
+## `POST /analytics/compare`
+
+An AI-generated narrative comparing two months' spending (BR-5). Reads only the materialized
+`MonthlySummary` aggregates and each month's top merchants from `Order` — never raw `OrderItem`
+rows or receipt images (PROJECT_SPEC.md §7.3). Manually triggered only; nothing calls this route
+automatically.
+
+Body:
+
+```json
+{ "monthB": "2026-07", "monthA": "2026-06", "refresh": false }
+```
+
+- `monthB` (**required**, `YYYY-MM`).
+- `monthA` (optional, `YYYY-MM`). Omit it to compare `monthB` against a synthetic baseline: the
+  per-category average of the 3 months immediately before `monthB`, built server-side into the same
+  shape as a real month so the prompt never needs to know the difference.
+- `refresh` (optional, default `false`). Set `true` to bypass the `MonthComparison` cache and force
+  a fresh AI call — any other order write that touches either month already invalidates the cache
+  automatically (`invalidateMonthComparisons`), so `refresh` is only for "I want a new take on the
+  same numbers."
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "payload": {
+      "headline": "Dining drove the increase, up 61% on more takeout orders.",
+      "drivers": [
+        { "category": "dining", "direction": "up", "amount": "1300.00", "explanation": "…" }
+      ],
+      "anomalies": [],
+      "suggestions": ["Set a dining budget for next month.", "…"],
+      "confidence": 0.85
+    },
+    "model": "gemini-3.5-flash",
+    "cached": true,
+    "currency": "EGP"
+  }
+}
+```
+
+`currency` is the account's one configured currency (`User.currency`) — every amount in `payload`
+is in it; there's no per-driver currency to mix. `drivers[].category` is always a slug that appears in `monthA` or `monthB`'s aggregate — any
+category the model invents is dropped server-side, never surfaced. `cached: true` means this exact
+`(userId, monthA, monthB, dataVersion)` combination was already generated; `dataVersion` is a hash
+of both months' aggregates, so it changes whenever the underlying numbers do.
+
+## Stub error shape (`POST /orders`, `POST /auth/apple`, `POST /auth/refresh`)
 
 Response `501`:
 
@@ -689,7 +737,7 @@ Response `501`:
 {
   "error": {
     "code": "NOT_IMPLEMENTED",
-    "message": "POST /api/v1/analytics/compare is not implemented yet."
+    "message": "POST /api/v1/orders is not implemented yet."
   }
 }
 ```
@@ -724,7 +772,7 @@ query by `userId` and returns `NOT_FOUND` rather than a 403, so existence is nev
 | `UNAUTHENTICATED` | 401 | Reserved for bearer-token auth once it exists. Today the only route that ever throws it is `POST /echo`'s debug-token check (missing/wrong `X-Debug-Token`) — no route checks an `Authorization` header yet |
 | `NOT_FOUND` | 404 | Resource doesn't exist, or belongs to another user (never 403 — don't leak existence) |
 | `RATE_LIMITED` | 429 | Defined for future per-user/per-IP limits (parse quota, AI spend) — no code path throws it yet |
-| `NOT_IMPLEMENTED` | 501 | Route not built yet: `POST /orders`, `POST /analytics/compare`, `POST /auth/apple`, `POST /auth/refresh` |
+| `NOT_IMPLEMENTED` | 501 | Route not built yet: `POST /orders`, `POST /auth/apple`, `POST /auth/refresh` |
 | `INTERNAL_ERROR` | 500 | Unexpected server error |
 
 `POST /echo` also uses a bare `502` (not one of the codes above, and not in `docs/api.md`'s error

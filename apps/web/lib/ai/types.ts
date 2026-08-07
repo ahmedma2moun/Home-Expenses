@@ -29,6 +29,8 @@ export interface AnalysisInput {
   /** Compact aggregate JSON — never raw items (PROJECT_SPEC.md §7.3). */
   diffJson: string;
   systemPrompt: string;
+  /** Shared `withRetry` deadline (`Date.now()`-scale) — see `lib/ai/retry.ts`'s `RetryOptions`. */
+  deadlineMs?: number;
 }
 
 export interface AnalysisResult extends AiResult {

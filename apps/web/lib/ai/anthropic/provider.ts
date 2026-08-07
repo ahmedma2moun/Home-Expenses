@@ -118,7 +118,7 @@ export class AnthropicProvider implements ExtractionProvider, AnalysisProvider, 
           { model: this.model, max_tokens: 2048, messages: [{ role: "user", content }] },
           { timeout: timeoutMs },
         ),
-      { isRetryable },
+      { isRetryable, ...(input.deadlineMs !== undefined && { deadlineMs: input.deadlineMs }) },
     );
 
     return toResult(this.model, outcome);

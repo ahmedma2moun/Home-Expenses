@@ -44,15 +44,15 @@ so would regenerate and silently wipe the hand-written keys in it (`API_BASE_URL
 
 ## What's actually built vs. PROJECT_SPEC.md §10
 
-- **Three tabs** (`RootView`): **Home** (`Features/Summary`), **Orders**, **Analytics**. Capture,
-  Parsing, and Review aren't tabs — they're a modal flow (`ReceiptFlowView`) launched from Home's
-  "+" toolbar button.
+- **Four tabs** (`RootView`): **Home** (`Features/Summary`), **Orders**, **Analytics**,
+  **Insights**. Capture, Parsing, and Review aren't tabs — they're a modal flow (`ReceiptFlowView`)
+  launched from Home's "+" toolbar button.
 - **Capture** uses `PhotosPicker` only (max 6 images) — no camera capture, no `VisionKit` document
   scanner, despite what the spec describes.
 - **Analytics** is a month-over-month category comparison with a drill-down, not a Swift Charts
-  trend view — there's no `import Charts` anywhere in the project, and no AI "Compare months" sheet
-  (the backend endpoint it would call, `POST /analytics/compare`, is itself an unimplemented stub —
-  see `docs/api.md`).
+  trend view — there's no `import Charts` anywhere in the project. The AI narrative UI isn't an
+  Analytics "Compare months" sheet either — it's its own **Insights** tab (`Features/Insights/`),
+  which calls the now-live `POST /analytics/compare` (see `docs/api.md`).
 - **Orders** has no search-by-merchant/item and no category filter.
 - **No Settings screen** — no account/currency/sign-out/delete-account UI at all.
 - **No offline cache** — no SwiftData, no `@Model`/`ModelContainer`/`ModelContext` anywhere. Nothing

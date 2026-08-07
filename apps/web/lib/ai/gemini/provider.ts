@@ -56,7 +56,7 @@ export class GeminiProvider implements ExtractionProvider, AnalysisProvider, Pro
 
   async compare(input: AnalysisInput): Promise<AnalysisResult> {
     const contents: Part[] = [{ text: `${input.systemPrompt}\n\n${input.diffJson}` }];
-    return this.generate(contents, {});
+    return this.generate(contents, {}, input.deadlineMs);
   }
 
   private async generate(

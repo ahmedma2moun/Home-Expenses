@@ -3,6 +3,7 @@ import { getExtractionProvider } from "@/lib/ai";
 import type { ReceiptImageInput } from "@/lib/ai/types";
 import { moneySchema } from "@/lib/api/schemas/common";
 import { EXTRACTION_SYSTEM_PROMPT_V3, buildCorrectionPrompt } from "@/lib/services/prompts";
+import { extractJsonObject } from "@/lib/services/aiJson";
 
 /** Models sometimes return a bare number for money fields despite the prompt — normalize before
  * the strict "12.34" check so a merely-unformatted (but otherwise correct) answer isn't bounced
@@ -71,21 +72,11 @@ export interface ExtractionOutcome {
  */
 const EXTRACTION_BUDGET_MS = 100_000;
 
-function extractJson(text: string): unknown {
-  // Models sometimes wrap JSON in prose or fences despite instructions — grab the outermost object.
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error("Response did not contain a JSON object.");
-  }
-  return JSON.parse(text.slice(start, end + 1)) as unknown;
-}
-
 type ParseAttempt = { success: true; data: ParsedReceipt } | { success: false; error: string };
 
 function tryParse(text: string): ParseAttempt {
   try {
-    const data = ParsedReceiptSchema.parse(extractJson(text));
+    const data = ParsedReceiptSchema.parse(extractJsonObject(text));
     return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown validation error.";

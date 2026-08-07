@@ -31,3 +31,38 @@ Validation error: ${validationError}
 
 Return corrected JSON only, matching the schema exactly.`;
 }
+
+/** Bump alongside the prompt text below and include in `monthComparison.ts`'s cache key
+ *  (`dataVersion`) — without this, a prompt change keeps serving old narratives from
+ *  `MonthComparison` for any pair of months whose numbers haven't changed since. */
+export const COMPARISON_PROMPT_VERSION = "comparison.v1";
+
+/** Keep in sync with docs/prompts/comparison.v1.md — see the `prompt-change` skill before editing. */
+export const COMPARISON_SYSTEM_PROMPT_V1 = `You compare two months of household spending using only the aggregate numbers provided. Return only a JSON object matching the schema below — no prose, no markdown fences. You must not invent categories or amounts not present in the input, and must not moralize about the user's spending.
+
+Return JSON matching exactly this shape:
+{
+  "headline": string,
+  "drivers": [
+    { "category": string, "direction": "up" | "down", "amount": string, "explanation": string }
+  ],
+  "anomalies": string[],
+  "suggestions": string[],
+  "confidence": number
+}
+
+"headline" is at most 20 words. "drivers" lists the categories that most explain the change between monthA and monthB, each with a one-sentence explanation, using only category slugs that appear in the input. A null value in "deltas.byCategoryPct" means that category is new this month — there is nothing to compare it against, so describe it as new rather than as a percentage change. "suggestions" has 2 to 4 entries, concrete and tied to the numbers in the input. Money fields are strings with exactly two decimal places, e.g. "45.00".`;
+
+export function buildComparisonCorrectionPrompt(
+  previousText: string,
+  validationError: string,
+): string {
+  return `${COMPARISON_SYSTEM_PROMPT_V1}
+
+Your previous output failed validation:
+${previousText}
+
+Validation error: ${validationError}
+
+Return corrected JSON only, matching the schema exactly.`;
+}

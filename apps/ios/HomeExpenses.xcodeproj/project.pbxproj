@@ -67,6 +67,9 @@
 		FF6A616B36C3340D333E6EBC /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9A4FDA25034DEEE5EFBDF5 /* SummaryView.swift */; };
 		FF7249C59F2DEC43947F0D6D /* OrdersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1106737ABF3CCBEBED8B0E1 /* OrdersViewModel.swift */; };
 		FFD2F8AF8F7C5AE84792EF2B /* PriceWatchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C856E29F74625268A48141C1 /* PriceWatchViewModel.swift */; };
+		FE50E1B8AD4F6FD974CF0B9B /* ComparisonDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7863124241E44DA249D518 /* ComparisonDTOs.swift */; };
+		A7E364C2A642BBF8889FF122 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0735DE0CE16E808A185F3EC0 /* InsightsView.swift */; };
+		13DA1398F1A02AA972FDBE0A /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04ADA4A2F55D42D4A0225864 /* InsightsViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -159,6 +162,9 @@
 		F4D2CCB0956EEA3EC6185716 /* MoneyStringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyStringTests.swift; sourceTree = "<group>"; };
 		FE08D458EC5B70BE2ED31628 /* PriceHistoryDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistoryDTOs.swift; sourceTree = "<group>"; };
 		FE0AF011BDDE08B265B426E8 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		0C7863124241E44DA249D518 /* ComparisonDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonDTOs.swift; sourceTree = "<group>"; };
+		0735DE0CE16E808A185F3EC0 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
+		04ADA4A2F55D42D4A0225864 /* InsightsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -291,6 +297,15 @@
 			path = Items;
 			sourceTree = "<group>";
 		};
+		4260368CCDA8C486ED5CC08E /* Insights */ = {
+			isa = PBXGroup;
+			children = (
+				0735DE0CE16E808A185F3EC0 /* InsightsView.swift */,
+				04ADA4A2F55D42D4A0225864 /* InsightsViewModel.swift */,
+			);
+			path = Insights;
+			sourceTree = "<group>";
+		};
 		74B8644348B33C752C4FD4B3 /* Review */ = {
 			isa = PBXGroup;
 			children = (
@@ -388,6 +403,7 @@
 			children = (
 				D23A2B97EF6052A72885D5B9 /* AnalyticsDTOs.swift */,
 				4F3EE93909555DA3BEE5F756 /* CategoryDTO.swift */,
+				0C7863124241E44DA249D518 /* ComparisonDTOs.swift */,
 				30BBDCA99DCE3FBF7BADA690 /* ConfirmDTOs.swift */,
 				EBDB14208335B59CB9287406 /* HealthDTO.swift */,
 				5B8194E5F7261B99B34A8673 /* OrderDTOs.swift */,
@@ -411,6 +427,7 @@
 			children = (
 				6360014309A07E80C1270A95 /* Analytics */,
 				3D2B6DC45D4D9C748B404130 /* Capture */,
+				4260368CCDA8C486ED5CC08E /* Insights */,
 				7454B09403C02BF40695AC3C /* Items */,
 				9DCBA7769CD223E7F76E5395 /* Orders */,
 				8EA47DF20F82858B8A5C2B2E /* Parsing */,
@@ -569,11 +586,14 @@
 				B661D087FBE5AC2800FD970C /* CaptureView.swift in Sources */,
 				E238DC1E9FB56D968554107B /* CaptureViewModel.swift in Sources */,
 				CF91A980C075542E723CC3C7 /* CategoryDTO.swift in Sources */,
+				FE50E1B8AD4F6FD974CF0B9B /* ComparisonDTOs.swift in Sources */,
 				E2B58156F98161F6C00AC0F1 /* ConfirmDTOs.swift in Sources */,
 				9D0343D582BD7FB31088DAB2 /* FlexibleDateParser.swift in Sources */,
 				3AC332DB2F50BA5661A71D56 /* HealthDTO.swift in Sources */,
 				E6B472E2A9CB2DF85553F81F /* HomeExpensesApp.swift in Sources */,
 				94ED77F8EC67B57B767E8DD0 /* ImagePreprocessor.swift in Sources */,
+				A7E364C2A642BBF8889FF122 /* InsightsView.swift in Sources */,
+				13DA1398F1A02AA972FDBE0A /* InsightsViewModel.swift in Sources */,
 				9A2B37B861A9A26A90605DC6 /* ItemHistoryView.swift in Sources */,
 				AAD7E68CBA0D09ABA03A6E4F /* ItemHistoryViewModel.swift in Sources */,
 				C5A02E4009CB7335655AA410 /* Money+FormatStyle.swift in Sources */,
