@@ -41,6 +41,17 @@ struct SpendWidgetView: View {
                 trendLabel(changeRatio)
             }
 
+            if let proteinAmount = entry.proteinAmount {
+                Label(
+                    proteinAmount.formatted(currencyCode: entry.currency) + " protein",
+                    systemImage: "fish.fill"
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            }
+
             Spacer(minLength: 4)
 
             if entry.priceWatchCount > 0 {

@@ -83,6 +83,7 @@ targets:
       - path: HomeExpenses/Core/Networking/AppConfig.swift
       - path: HomeExpenses/Core/Networking/DTOs/AnalyticsDTOs.swift
       - path: HomeExpenses/Core/Networking/DTOs/PriceHistoryDTOs.swift
+      - path: HomeExpenses/Core/Networking/DTOs/OrderDTOs.swift
       - path: HomeExpenses/Core/DesignSystem/Money+FormatStyle.swift
       - path: HomeExpenses/Core/DesignSystem/MonthLabel.swift
       - path: HomeExpenses/Core/DesignSystem/FlexibleDateParser.swift
