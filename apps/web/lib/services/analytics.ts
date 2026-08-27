@@ -39,20 +39,21 @@ export interface MonthSummary {
   /** The account's one configured currency (`User.currency`) — see `lib/services/users.ts`. Every
    *  amount in this response is in this currency; there is no per-order breakdown here to mix. */
   currency: string;
-  /** Excludes items flagged `OrderItem.isProtein` — protein spend is tracked only in `protein`
-   *  below, never double-counted into this total (nor into `categories`/`weeks`). */
+  /** Includes items flagged `OrderItem.isProtein` normally, same as any other item — see `protein`
+   *  below for that same spend broken out on its own (not a subtraction from this total). */
   totalAmount: string;
   orderCount: number;
   itemCount: number;
-  /** Excludes protein items — see `totalAmount`. */
+  /** Includes protein items normally — see `totalAmount`. */
   categories: MonthCategoryTotal[];
   /** Always 5 entries (weeks 1-5), zero-filled for any week with no (non-protein) spending —
-   *  total-only, no per-category split (see `WeeklySummary`). Excludes protein items. */
+   *  total-only, no per-category split (see `WeeklySummary`). **Excludes** protein items — they
+   *  count toward `totalAmount`/`categories` but are never split across weeks. */
   weeks: WeekTotal[];
-  /** The month's protein spend, tracked entirely separately from `totalAmount`/`categories`/`weeks`
-   *  above — items flagged `OrderItem.isProtein`, always at month granularity regardless of their
-   *  category or the order's week. Zero-filled when no protein items exist this month
-   *  (`ProteinMonthlySummary`). */
+  /** The month's protein spend, broken out for its own visibility — items flagged
+   *  `OrderItem.isProtein`, always at month granularity regardless of their category or the order's
+   *  week. Already included in `totalAmount`/`categories` above; only absent from `weeks`.
+   *  Zero-filled when no protein items exist this month (`ProteinMonthlySummary`). */
   protein: ProteinTotal;
 }
 

@@ -117,7 +117,7 @@ model OrderItem {
   aiCategoryId   String? // what Claude proposed, before user edit
   confidence     Float?
   position       Int
-  isProtein      Boolean  @default(false) // excluded from MonthlySummary/WeeklySummary — rolls up only into ProteinMonthlySummary
+  isProtein      Boolean  @default(false) // counts normally in MonthlySummary; excluded only from WeeklySummary; also rolls up into ProteinMonthlySummary
 
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])

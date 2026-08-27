@@ -112,7 +112,7 @@ struct SummaryView: View {
                         Text(summary.protein.totalAmount.value.formatted(currencyCode: summary.currency))
                             .monospacedDigit()
                     }
-                    Text("\(summary.protein.itemCount) items · tracked separately, not in the totals above")
+                    Text("\(summary.protein.itemCount) items · included in the total, not split by week")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

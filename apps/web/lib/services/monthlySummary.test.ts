@@ -128,13 +128,13 @@ describe("recomputeMonthlySummary — category aggregate", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  // Protein spend is tracked only in ProteinMonthlySummary — it must never be double-counted into
-  // the category totals that feed the overall month total.
-  it("excludes protein-flagged items from the aggregate query", async () => {
+  // Protein spend counts toward the ordinary monthly/category total like any other item — only the
+  // weekly split excludes it (see the weekly aggregate's own test below).
+  it("does not filter by isProtein — protein items count normally here", async () => {
     await run([]);
 
     const [strings] = queryRaw.mock.calls[0] as [readonly string[]];
-    expect(strings.join("")).toContain('oi."isProtein" = false');
+    expect(strings.join("")).not.toContain("isProtein");
   });
 });
 
