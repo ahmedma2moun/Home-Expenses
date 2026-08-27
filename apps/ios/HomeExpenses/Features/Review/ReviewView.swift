@@ -76,6 +76,11 @@ struct ReviewView: View {
                         .accessibilityLabel("Next month")
                     }
                     .buttonStyle(.plain)
+                    HStack {
+                        Text("Week")
+                        Spacer()
+                        weekMenu
+                    }
                     TextField("Currency", text: $viewModel.currency)
                         .textInputAutocapitalization(.characters)
                 }
@@ -159,6 +164,17 @@ struct ReviewView: View {
         }
     }
 
+    private var weekMenu: some View {
+        Menu {
+            ForEach(1...5, id: \.self) { week in
+                Button("Week \(week)") { viewModel.periodWeek = week }
+            }
+        } label: {
+            Label("Week \(viewModel.periodWeek)", systemImage: "calendar")
+                .font(.subheadline)
+        }
+    }
+
     private func mismatchBanner(_ mismatchAmount: Decimal) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 6) {
@@ -226,6 +242,13 @@ struct ReviewView: View {
                 }
 
                 priceBadge(for: item.wrappedValue)
+
+                Spacer()
+
+                Toggle("Protein", isOn: item.isProtein)
+                    .toggleStyle(.button)
+                    .font(.caption)
+                    .controlSize(.mini)
             }
         }
         .padding(.vertical, 4)

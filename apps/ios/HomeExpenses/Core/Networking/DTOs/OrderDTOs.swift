@@ -9,6 +9,7 @@ struct OrderSummaryDTO: Decodable, Identifiable, Sendable {
     let id: String
     let merchant: String
     let periodMonth: String
+    let periodWeek: Int
     let currency: String
     let total: MoneyString
     let itemCount: Int
@@ -53,6 +54,7 @@ struct OrderItemDTO: Decodable, Identifiable, Sendable {
     let categoryId: String
     let aiCategoryId: String?
     let position: Int
+    let isProtein: Bool
 
     /// "Milkman Full Cream Milk" when a brand was captured, otherwise just the item name — for
     /// read-only rows (e.g. `OrderGroupView`) that don't edit brand and name as separate fields.
@@ -70,6 +72,7 @@ struct OrderDetailDTO: Decodable, Sendable {
     let receiptId: String?
     let merchant: String
     let periodMonth: String
+    let periodWeek: Int
     let currency: String
     let subtotal: MoneyString
     let tax: MoneyString
@@ -88,6 +91,7 @@ struct OrderDetailDTO: Decodable, Sendable {
 struct OrderUpdateRequest: Encodable, Sendable {
     var merchant: String?
     var periodMonth: String?
+    var periodWeek: Int?
     var currency: String?
     var subtotal: String?
     var tax: String?
@@ -107,6 +111,7 @@ struct OrderItemInput: Encodable, Sendable {
     let categoryId: String
     let aiCategoryId: String?
     let position: Int
+    let isProtein: Bool
 }
 
 struct OrderDeleteResponse: Decodable, Sendable {

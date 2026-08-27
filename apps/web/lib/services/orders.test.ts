@@ -86,6 +86,44 @@ describe("confirmReceipt", () => {
     ]);
   });
 
+  it("defaults periodWeek to 1 when the client omits it", async () => {
+    arrangeConfirmableReceipt();
+
+    await confirmReceipt("user-1", "receipt-1", confirmInput());
+
+    expect(orderCreate.mock.calls[0]?.[0]).toMatchObject({ data: { periodWeek: 1 } });
+  });
+
+  it("stores the client's chosen periodWeek and each item's isProtein flag", async () => {
+    arrangeConfirmableReceipt();
+    categoryFindMany.mockResolvedValue([{ id: "meat_seafood" }]);
+
+    await confirmReceipt(
+      "user-1",
+      "receipt-1",
+      confirmInput({
+        periodWeek: 3,
+        items: [
+          {
+            name: "Chicken breast",
+            quantity: 1,
+            lineTotal: "120.00",
+            categoryId: "meat_seafood",
+            position: 0,
+            isProtein: true,
+          },
+        ],
+      }),
+    );
+
+    expect(orderCreate.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        periodWeek: 3,
+        items: { create: [expect.objectContaining({ isProtein: true })] },
+      },
+    });
+  });
+
   it("keeps the merchant the user supplied", async () => {
     arrangeConfirmableReceipt();
 

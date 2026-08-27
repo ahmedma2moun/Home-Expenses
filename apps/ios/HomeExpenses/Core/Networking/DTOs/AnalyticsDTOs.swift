@@ -11,6 +11,24 @@ struct MonthCategoryTotalDTO: Decodable, Identifiable, Sendable {
     let orderCount: Int
 }
 
+/// One week (1-5) within the selected month — total-only, no per-category split. Always 5 entries
+/// on the wire, zero-filled for a week with no spending.
+struct WeekTotalDTO: Decodable, Identifiable, Sendable {
+    var id: Int { week }
+    let week: Int
+    let totalAmount: MoneyString
+    let itemCount: Int
+    let orderCount: Int
+}
+
+/// Items flagged `OrderItem.isProtein`, rolled up at month granularity — cuts across categories and
+/// weeks by design, so this never splits further than the whole month.
+struct ProteinTotalDTO: Decodable, Sendable {
+    let totalAmount: MoneyString
+    let itemCount: Int
+    let orderCount: Int
+}
+
 struct MonthSummaryDTO: Decodable, Sendable {
     let month: String
     /// The account's one configured currency — every amount in this response is in it (no
@@ -20,4 +38,6 @@ struct MonthSummaryDTO: Decodable, Sendable {
     let orderCount: Int
     let itemCount: Int
     let categories: [MonthCategoryTotalDTO]
+    let weeks: [WeekTotalDTO]
+    let protein: ProteinTotalDTO
 }

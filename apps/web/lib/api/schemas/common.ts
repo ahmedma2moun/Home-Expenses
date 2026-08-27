@@ -9,3 +9,6 @@ export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 export const monthLabelSchema = z.string().regex(MONTH_RE, 'Month must be formatted as "YYYY-MM".');
 
 export const clientRefSchema = z.string().min(1).max(128);
+
+/** Week within a periodMonth: 1-5, "week1"-"week5" on the client. */
+export const periodWeekSchema = z.coerce.number().int().min(1).max(5);

@@ -10,11 +10,13 @@ struct ConfirmOrderItemRequest: Encodable, Sendable {
     let categoryId: String
     let aiCategoryId: String?
     let position: Int
+    let isProtein: Bool
 }
 
 struct ConfirmReceiptRequest: Encodable, Sendable {
     let merchant: String
     let periodMonth: String
+    let periodWeek: Int
     let currency: String
     let subtotal: String
     let tax: String

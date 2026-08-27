@@ -28,18 +28,18 @@ web clients talk to.
 | `POST` | `/receipts` | required | **live** | `{ clientRef, images: [{ base64, position, mimeType }] }` → creates receipt, starts parse. See below |
 | `GET` | `/receipts/:id` | required | **live** | Poll status + `parsedPayload` when `PARSED`. See below |
 | `POST` | `/receipts/:id/reparse` | required | **live** | Retry a `FAILED` parse — client must resend the images (see below) |
-| `POST` | `/receipts/:id/confirm` | required | **live** | Body = final user-edited order + items + `periodMonth` → creates `Order`. `merchant` is required but may be an empty string — it is trimmed, and a blank one is stored as `"Unknown merchant"`. `periodMonth` may be any month, past or future (BR-4) |
+| `POST` | `/receipts/:id/confirm` | required | **live** | Body = final user-edited order + items + `periodMonth`/`periodWeek` → creates `Order`. `merchant` is required but may be an empty string — it is trimmed, and a blank one is stored as `"Unknown merchant"`. `periodMonth` may be any month, past or future (BR-4); `periodWeek` (1-5) defaults to 1 |
 | `DELETE` | `/receipts/:id` | required | **live** | Discard an unconfirmed receipt (soft delete — sets `status = DISCARDED`; there's no blob to clean up) |
 | `GET` | `/orders?month=YYYY-MM&cursor=&limit=` | required | **live** | Paginated orders for a month; `month` omitted lists every month |
 | `POST` | `/orders` | required | **stub (501)** | Manual order entry (no receipt) — not implemented |
 | `GET` | `/orders/:id` | required | **live** | Order + items |
-| `PATCH` | `/orders/:id` | required | **live** | Edit merchant/notes/**periodMonth**/items |
+| `PATCH` | `/orders/:id` | required | **live** | Edit merchant/notes/**periodMonth**/**periodWeek**/items |
 | `DELETE` | `/orders/:id` | required | **live** | Delete order (cascades items, recomputes summaries) |
 | `GET` | `/orders/by-category?month=&categoryId=` | required | **live** | Every item in one month/category, grouped by order. See below |
 | `GET` | `/categories` | required | **live** | Taxonomy, active categories only |
 | `GET` | `/items/price-history?name=` | required | **live** | Every past purchase of one item, its cheapest store, and whether the price jumped last time. See below |
 | `POST` | `/items/price-check` | required | **live** | Batch price-creep/cheapest-store check for a receipt's unconfirmed draft items. See below |
-| `GET` | `/analytics/month/:month` | required | **live** | Totals, per-category breakdown for one month. See below |
+| `GET` | `/analytics/month/:month` | required | **live** | Totals, per-category breakdown, per-week breakdown, and protein spend for one month. See below |
 | `GET` | `/analytics/trends?months=12` | required | **live** | Series of monthly totals + per-category series |
 | `GET` | `/analytics/price-watch?month=` | required | **live** | Items bought this month whose price jumped at the same merchant. See below |
 | `POST` | `/analytics/compare` | required | **live** | `{ monthA?, monthB, refresh? }` → cached or fresh AI narrative. Omitting `monthA` compares against a trailing 3-month baseline instead of a second real month. See below |
@@ -242,6 +242,7 @@ Request:
 {
   "merchant": "Carrefour",
   "periodMonth": "2026-07",
+  "periodWeek": 2,
   "currency": "EGP",
   "subtotal": "612.00",
   "tax": "38.00",
@@ -258,7 +259,8 @@ Request:
       "lineTotal": "45.00",
       "categoryId": "dairy_eggs",
       "aiCategoryId": "dairy_eggs",
-      "position": 0
+      "position": 0,
+      "isProtein": false
     }
   ]
 }
@@ -267,6 +269,12 @@ Request:
 `brand` is optional/nullable on every item shape — most produce, bakery, and unbranded items
 legitimately have none. It is display-only and does not affect price-history matching (see
 `GET /items/price-history` below), which stays keyed on `name` alone.
+
+`periodWeek` (1-5, week within `periodMonth`) defaults to `1` when omitted — an order with no week
+opinion just reads as week 1, same as an order created before this field existed. `isProtein`
+defaults to `false` on every item and cuts across categories: it rolls up into
+`GET /analytics/month/:month`'s `protein` total regardless of the item's `categoryId` or the
+order's `periodWeek`.
 
 Response `200`:
 
@@ -288,9 +296,10 @@ Response `200`:
 
 ## `GET /analytics/month/:month`
 
-BR-5 month detail: total spend, order/item counts, per-category breakdown for one month. Reads only
-the materialized `MonthlySummary` table, never `OrderItem` (§12). Categories are sorted by that
-month's total, descending.
+BR-5 month detail: total spend, order/item counts, per-category breakdown, per-week breakdown, and
+protein spend for one month. Reads only the materialized `MonthlySummary`/`WeeklySummary`/
+`ProteinMonthlySummary` tables, never `OrderItem` (§12). Categories are sorted by that month's
+total, descending.
 
 Response `200`:
 
@@ -311,7 +320,15 @@ Response `200`:
         "itemCount": 18,
         "orderCount": 6
       }
-    ]
+    ],
+    "weeks": [
+      { "week": 1, "totalAmount": "500.00", "itemCount": 20, "orderCount": 4 },
+      { "week": 2, "totalAmount": "0.00", "itemCount": 0, "orderCount": 0 },
+      { "week": 3, "totalAmount": "830.00", "itemCount": 30, "orderCount": 5 },
+      { "week": 4, "totalAmount": "0.00", "itemCount": 0, "orderCount": 0 },
+      { "week": 5, "totalAmount": "500.00", "itemCount": 14, "orderCount": 3 }
+    ],
+    "protein": { "totalAmount": "310.00", "itemCount": 9, "orderCount": 5 }
   }
 }
 ```
@@ -322,6 +339,12 @@ PROJECT_SPEC.md §4's BR-5 aren't in this response — only what's shown above i
 `currency` is the account's one configured currency (`User.currency`) — there's no per-order
 currency breakdown here because there's no multi-currency support (see the confirm/update note
 below). Every amount in this response is in this currency.
+
+`weeks` always has exactly 5 entries (week 1-5), zero-filled for any week with no spending — the
+month total split by `Order.periodWeek`, total-only (no per-category breakdown per week). `protein`
+is a single month-level total of every `OrderItem.isProtein = true` line, zero-filled when none
+exist — it cuts across both categories and weeks by design (an order's week doesn't affect whether
+its protein items count).
 
 ## `GET /orders`
 
@@ -343,6 +366,7 @@ Response `200`:
         "id": "clx1order",
         "merchant": "Carrefour",
         "periodMonth": "2026-07",
+        "periodWeek": 2,
         "currency": "EGP",
         "total": "650.00",
         "itemCount": 12,
@@ -369,6 +393,7 @@ Response `200` — the order with its line items, in `position` order:
     "receiptId": "clx1receipt",
     "merchant": "Carrefour",
     "periodMonth": "2026-07",
+    "periodWeek": 2,
     "currency": "EGP",
     "subtotal": "612.00",
     "tax": "38.00",
@@ -390,7 +415,8 @@ Response `200` — the order with its line items, in `position` order:
         "lineTotal": "45.00",
         "categoryId": "dairy_eggs",
         "aiCategoryId": "dairy_eggs",
-        "position": 0
+        "position": 0,
+        "isProtein": false
       }
     ]
   }
@@ -442,7 +468,8 @@ Response `200`:
             "lineTotal": "120.00",
             "categoryId": "dairy_eggs",
             "aiCategoryId": "dairy_eggs",
-            "position": 0
+            "position": 0,
+            "isProtein": false
           }
         ]
       }
@@ -553,6 +580,11 @@ user just added don't exist server-side yet. Because that changes what the order
 `subtotal` and `total` are required whenever `items` is present; their arithmetic is trusted, not
 checked (BR-2). Each item needs a distinct `position`. A `categoryId` that is unknown *or retired*
 comes back as a field-level `400` (`details.issues[].path` = `items.<n>.categoryId`), not a 500.
+`isProtein` defaults to `false` per item when omitted.
+
+`periodWeek` (1-5) can be changed independently of `periodMonth` — moving only the week still
+recomputes that month's `WeeklySummary` rows (a full-month recompute covers every week in it), but
+doesn't trigger the two-month recompute that a `periodMonth` change does.
 
 Echo `aiCategoryId` back for rows that came from a parse — it is what lets a re-categorization be
 recorded in `ItemCategoryOverride` for the learning loop (§11). Only categories that changed in
@@ -568,6 +600,7 @@ Request:
 {
   "merchant": "Carrefour City",
   "periodMonth": "2026-08",
+  "periodWeek": 1,
   "subtotal": "45.00",
   "tax": "0.00",
   "discount": "0.00",
@@ -582,7 +615,8 @@ Request:
       "lineTotal": "45.00",
       "categoryId": "produce",
       "aiCategoryId": "produce",
-      "position": 0
+      "position": 0,
+      "isProtein": false
     }
   ]
 }

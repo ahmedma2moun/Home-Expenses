@@ -7,6 +7,7 @@ import Foundation
 final class OrderEditViewModel: ObservableObject {
     @Published var merchant = ""
     @Published var periodMonth = MonthLabel.startOfMonth(Date())
+    @Published var periodWeek = 1
     @Published var currency = "EGP"
     @Published var items: [EditableItem] = []
     @Published var tax: Decimal = 0
@@ -123,6 +124,7 @@ final class OrderEditViewModel: ObservableObject {
     private func apply(_ order: OrderDetailDTO, periodMonth month: Date) {
         merchant = order.merchant
         periodMonth = month
+        periodWeek = order.periodWeek
         currency = order.currency
         tax = order.tax.value
         discount = order.discount.value
@@ -138,7 +140,8 @@ final class OrderEditViewModel: ObservableObject {
                 categoryId: item.categoryId,
                 // Kept so the learning-loop record (ItemCategoryOverride) survives an edit —
                 // dropping it would make a re-categorized item look like the AI's own choice.
-                aiCategoryId: item.aiCategoryId
+                aiCategoryId: item.aiCategoryId,
+                isProtein: item.isProtein
             )
         }
     }
@@ -147,6 +150,7 @@ final class OrderEditViewModel: ObservableObject {
         OrderUpdateRequest(
             merchant: merchant,
             periodMonth: MonthLabel.format(periodMonth),
+            periodWeek: periodWeek,
             currency: currency,
             subtotal: subtotal.wireString,
             tax: tax.wireString,
@@ -163,7 +167,8 @@ final class OrderEditViewModel: ObservableObject {
                     lineTotal: item.lineTotal.wireString,
                     categoryId: item.categoryId,
                     aiCategoryId: item.aiCategoryId,
-                    position: index
+                    position: index,
+                    isProtein: item.isProtein
                 )
             }
         )

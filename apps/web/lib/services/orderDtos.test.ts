@@ -14,6 +14,7 @@ function orderWithItems(overrides: Record<string, unknown> = {}) {
     receiptId: "receipt-1",
     merchant: "Carrefour",
     periodMonth: JULY,
+    periodWeek: 1,
     currency: "EGP",
     subtotal: decimal("120.00"),
     tax: decimal("0.00"),
@@ -39,6 +40,7 @@ function item(overrides: Record<string, unknown> = {}) {
     categoryId: "dairy_eggs",
     aiCategoryId: "pantry",
     position: 0,
+    isProtein: false,
     ...overrides,
   };
 }
@@ -57,6 +59,7 @@ describe("toOrderItemDto", () => {
       categoryId: "dairy_eggs",
       aiCategoryId: "pantry",
       position: 0,
+      isProtein: false,
     });
   });
 
@@ -67,15 +70,20 @@ describe("toOrderItemDto", () => {
     expect(dto.unitPrice).toBeNull();
     expect(dto.lineTotal).toBe("120.00");
   });
+
+  it("passes through isProtein for an item flagged protein", () => {
+    expect(toOrderItemDto(item({ isProtein: true }) as never).isProtein).toBe(true);
+  });
 });
 
 describe("toOrderSummary", () => {
-  it("formats the period month and counts items from _count", () => {
-    const dto = toOrderSummary(orderWithItems({ _count: { items: 4 } }) as never);
+  it("formats the period month/week and counts items from _count", () => {
+    const dto = toOrderSummary(orderWithItems({ periodWeek: 3, _count: { items: 4 } }) as never);
 
     expect(dto).toMatchObject({
       id: "order-1",
       periodMonth: "2026-07",
+      periodWeek: 3,
       total: "120.00",
       itemCount: 4,
     });
@@ -87,6 +95,7 @@ describe("toOrderDto", () => {
     const dto = toOrderDto(orderWithItems({ items: [item(), item({ id: "item-2" })] }) as never);
 
     expect(dto).toMatchObject({
+      periodWeek: 1,
       subtotal: "120.00",
       tax: "0.00",
       discount: "0.00",

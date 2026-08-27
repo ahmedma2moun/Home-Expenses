@@ -130,6 +130,25 @@ describe("updateOrder", () => {
     expect(call.data).toEqual({ merchant: "Metro" });
   });
 
+  it("patches periodWeek without touching periodMonth when only the week changes", async () => {
+    arrangeExistingOrder();
+
+    await updateOrder("user-1", "order-1", updateInput({ periodWeek: 4 }));
+
+    expect(orderUpdate.mock.calls[0]?.[0]).toMatchObject({ data: { periodWeek: 4 } });
+    expect(recomputeMonthlySummary).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaces items carrying each one's isProtein flag", async () => {
+    arrangeExistingOrder();
+
+    await updateOrder("user-1", "order-1", updateInput(itemsInput({ isProtein: true })));
+
+    expect(orderUpdate.mock.calls[0]?.[0]).toMatchObject({
+      data: { items: { create: [expect.objectContaining({ isProtein: true })] } },
+    });
+  });
+
   it("substitutes the placeholder when the merchant is blanked", async () => {
     arrangeExistingOrder();
 

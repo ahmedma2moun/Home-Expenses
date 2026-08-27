@@ -96,6 +96,28 @@ struct SummaryView: View {
                 }
             }
 
+            if !summary.weeks.isEmpty {
+                Section("By week") {
+                    ForEach(summary.weeks) { week in
+                        weekRow(week, currency: summary.currency)
+                    }
+                }
+            }
+
+            if summary.protein.itemCount > 0 {
+                Section {
+                    HStack {
+                        Label("Protein spend", systemImage: "fish.fill")
+                        Spacer()
+                        Text(summary.protein.totalAmount.value.formatted(currencyCode: summary.currency))
+                            .monospacedDigit()
+                    }
+                    Text("\(summary.protein.itemCount) items · always monthly, not split by week")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if let priceWatchCount = viewModel.priceWatchCount, priceWatchCount > 0 {
                 Section {
                     NavigationLink {
@@ -135,6 +157,16 @@ struct SummaryView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    private func weekRow(_ week: WeekTotalDTO, currency: String) -> some View {
+        HStack {
+            Text("Week \(week.week)")
+            Spacer()
+            Text(week.totalAmount.value.formatted(currencyCode: currency))
+                .monospacedDigit()
+                .foregroundStyle(week.itemCount > 0 ? .primary : .secondary)
+        }
     }
 
     private func expansionBinding(for categoryId: String) -> Binding<Bool> {

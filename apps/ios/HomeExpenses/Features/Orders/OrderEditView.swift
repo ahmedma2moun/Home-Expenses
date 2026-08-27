@@ -57,6 +57,7 @@ struct OrderEditView: View {
             Section("Order") {
                 TextField("Merchant", text: $viewModel.merchant)
                 monthRow
+                weekRow
                 TextField("Currency", text: $viewModel.currency)
                     .textInputAutocapitalization(.characters)
             }
@@ -109,6 +110,21 @@ struct OrderEditView: View {
             .accessibilityLabel("Next month")
         }
         .buttonStyle(.plain)
+    }
+
+    private var weekRow: some View {
+        HStack {
+            Text("Week")
+            Spacer()
+            Menu {
+                ForEach(1...5, id: \.self) { week in
+                    Button("Week \(week)") { viewModel.periodWeek = week }
+                }
+            } label: {
+                Label("Week \(viewModel.periodWeek)", systemImage: "calendar")
+                    .font(.subheadline)
+            }
+        }
     }
 
     private var itemsSection: some View {
@@ -189,20 +205,29 @@ private struct OrderItemEditor: View {
             }
             .font(.subheadline)
 
-            Menu {
-                ForEach(categories) { category in
-                    Button("\(category.emoji) \(category.name)") {
-                        item.categoryId = category.id
+            HStack {
+                Menu {
+                    ForEach(categories) { category in
+                        Button("\(category.emoji) \(category.name)") {
+                            item.categoryId = category.id
+                        }
                     }
+                } label: {
+                    Label(selectedCategoryLabel, systemImage: "tag")
+                        .font(.caption)
                 }
-            } label: {
-                Label(selectedCategoryLabel, systemImage: "tag")
+                // VoiceOver would otherwise read the emoji's Unicode name, or the raw slug before
+                // the taxonomy has loaded.
+                .accessibilityLabel("Category, \(selectedCategoryName)")
+                .accessibilityHint("Changes this item's category")
+
+                Spacer()
+
+                Toggle("Protein", isOn: $item.isProtein)
+                    .toggleStyle(.button)
                     .font(.caption)
+                    .controlSize(.mini)
             }
-            // VoiceOver would otherwise read the emoji's Unicode name, or the raw slug before the
-            // taxonomy has loaded.
-            .accessibilityLabel("Category, \(selectedCategoryName)")
-            .accessibilityHint("Changes this item's category")
         }
         .padding(.vertical, 4)
     }

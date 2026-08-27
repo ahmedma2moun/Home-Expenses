@@ -21,6 +21,19 @@ export interface MonthCategoryTotal {
   orderCount: number;
 }
 
+export interface WeekTotal {
+  week: number;
+  totalAmount: string;
+  itemCount: number;
+  orderCount: number;
+}
+
+export interface ProteinTotal {
+  totalAmount: string;
+  itemCount: number;
+  orderCount: number;
+}
+
 export interface MonthSummary {
   month: string;
   /** The account's one configured currency (`User.currency`) — see `lib/services/users.ts`. Every
@@ -30,14 +43,27 @@ export interface MonthSummary {
   orderCount: number;
   itemCount: number;
   categories: MonthCategoryTotal[];
+  /** Always 5 entries (weeks 1-5), zero-filled for any week with no spending — total-only, no
+   *  per-category split (see `WeeklySummary`). */
+  weeks: WeekTotal[];
+  /** Cuts across categories and weeks — items flagged `OrderItem.isProtein`, always at month
+   *  granularity. Zero-filled when no protein items exist this month (`ProteinMonthlySummary`). */
+  protein: ProteinTotal;
 }
 
-/** Reads the materialized MonthlySummary rows for one month — never scans OrderItem (§12). */
+const WEEKS_PER_MONTH = 5;
+
+/** Reads the materialized MonthlySummary/WeeklySummary/ProteinMonthlySummary rows for one month —
+ *  never scans OrderItem (§12). */
 export async function getMonthSummary(userId: string, periodMonth: Date): Promise<MonthSummary> {
-  const [rows, orderCount, currency] = await Promise.all([
+  const [rows, weekRows, proteinRow, orderCount, currency] = await Promise.all([
     prisma.monthlySummary.findMany({
       where: { userId, periodMonth },
       orderBy: { totalAmount: "desc" },
+    }),
+    prisma.weeklySummary.findMany({ where: { userId, periodMonth } }),
+    prisma.proteinMonthlySummary.findUnique({
+      where: { userId_periodMonth: { userId, periodMonth } },
     }),
     prisma.order.count({ where: { userId, periodMonth } }),
     getUserCurrency(userId),
@@ -54,6 +80,18 @@ export async function getMonthSummary(userId: string, periodMonth: Date): Promis
   const totalAmount = rows.reduce((sum, row) => sum.add(row.totalAmount), new Prisma.Decimal(0));
   const itemCount = categories.reduce((sum, category) => sum + category.itemCount, 0);
 
+  const weeksByNumber = new Map(weekRows.map((row) => [row.periodWeek, row]));
+  const weeks: WeekTotal[] = Array.from({ length: WEEKS_PER_MONTH }, (_, index) => {
+    const week = index + 1;
+    const row = weeksByNumber.get(week);
+    return {
+      week,
+      totalAmount: (row?.totalAmount ?? new Prisma.Decimal(0)).toFixed(2),
+      itemCount: row?.itemCount ?? 0,
+      orderCount: row?.orderCount ?? 0,
+    };
+  });
+
   return {
     month: formatMonthLabel(periodMonth),
     currency,
@@ -61,6 +99,12 @@ export async function getMonthSummary(userId: string, periodMonth: Date): Promis
     orderCount,
     itemCount,
     categories,
+    weeks,
+    protein: {
+      totalAmount: (proteinRow?.totalAmount ?? new Prisma.Decimal(0)).toFixed(2),
+      itemCount: proteinRow?.itemCount ?? 0,
+      orderCount: proteinRow?.orderCount ?? 0,
+    },
   };
 }
 

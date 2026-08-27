@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  OrderItemInputSchema,
   OrderItemsByCategoryQuerySchema,
   OrderListQuerySchema,
   OrderUpdateRequestSchema,
@@ -30,6 +31,16 @@ describe("OrderListQuerySchema", () => {
 
   it("rejects a malformed month", () => {
     expect(OrderListQuerySchema.safeParse({ month: "2026-13" }).success).toBe(false);
+  });
+});
+
+describe("OrderItemInputSchema", () => {
+  it("defaults isProtein to false when omitted", () => {
+    expect(OrderItemInputSchema.parse(item).isProtein).toBe(false);
+  });
+
+  it("accepts an item explicitly flagged protein", () => {
+    expect(OrderItemInputSchema.parse({ ...item, isProtein: true }).isProtein).toBe(true);
   });
 });
 
@@ -112,5 +123,16 @@ describe("OrderUpdateRequestSchema", () => {
   // BR-4: the user owns the accounting month, including a future one.
   it("accepts a future period month", () => {
     expect(OrderUpdateRequestSchema.safeParse({ periodMonth: "2099-12" }).success).toBe(true);
+  });
+
+  it("accepts a periodWeek within 1-5", () => {
+    const result = OrderUpdateRequestSchema.safeParse({ periodWeek: 3 });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.periodWeek).toBe(3);
+  });
+
+  it("rejects a periodWeek outside 1-5", () => {
+    expect(OrderUpdateRequestSchema.safeParse({ periodWeek: 0 }).success).toBe(false);
+    expect(OrderUpdateRequestSchema.safeParse({ periodWeek: 6 }).success).toBe(false);
   });
 });

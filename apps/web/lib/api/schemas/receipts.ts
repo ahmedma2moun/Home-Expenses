@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { clientRefSchema, moneySchema, monthLabelSchema } from "@/lib/api/schemas/common";
+import {
+  clientRefSchema,
+  moneySchema,
+  monthLabelSchema,
+  periodWeekSchema,
+} from "@/lib/api/schemas/common";
 import { OrderItemInputSchema } from "@/lib/api/schemas/orders";
 
 // No blob storage: images travel as base64 in the request body and are used once, in memory, for
@@ -38,6 +43,7 @@ export const ConfirmReceiptRequestSchema = z.object({
   // `confirmReceipt` substitutes UNKNOWN_MERCHANT — the wire contract stays "a string".
   merchant: z.string().trim().max(200),
   periodMonth: monthLabelSchema,
+  periodWeek: periodWeekSchema.default(1),
   currency: z.string().min(1).max(8),
   subtotal: moneySchema,
   tax: moneySchema.default("0.00"),

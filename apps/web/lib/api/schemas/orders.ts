@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { moneySchema, monthLabelSchema } from "@/lib/api/schemas/common";
+import { moneySchema, monthLabelSchema, periodWeekSchema } from "@/lib/api/schemas/common";
 import { CATEGORY_SLUGS } from "@/lib/services/categoryTaxonomy";
 
 const MAX_ITEMS_PER_ORDER = 200;
@@ -25,6 +25,7 @@ export const OrderItemInputSchema = z.object({
   categoryId: z.enum(CATEGORY_SLUGS),
   aiCategoryId: z.string().min(1).nullable().optional(),
   position: z.number().int().min(0),
+  isProtein: z.boolean().default(false),
 });
 export type OrderItemInput = z.infer<typeof OrderItemInputSchema>;
 
@@ -65,6 +66,7 @@ export const OrderUpdateRequestSchema = z
     // stored under a placeholder rather than costing the user their edit.
     merchant: z.string().trim().max(200).optional(),
     periodMonth: monthLabelSchema.optional(),
+    periodWeek: periodWeekSchema.optional(),
     currency: z.string().min(1).max(8).optional(),
     subtotal: moneySchema.optional(),
     tax: moneySchema.optional(),

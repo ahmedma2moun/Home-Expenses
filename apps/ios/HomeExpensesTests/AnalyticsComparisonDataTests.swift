@@ -9,7 +9,7 @@ final class AnalyticsComparisonDataTests: XCTestCase {
             """
         }.joined(separator: ",")
         let json = """
-        {"month":"2026-07","currency":"EGP","totalAmount":"0.00","orderCount":0,"itemCount":0,"categories":[\(decoded)]}
+        {"month":"2026-07","currency":"EGP","totalAmount":"0.00","orderCount":0,"itemCount":0,"categories":[\(decoded)],"weeks":[],"protein":{"totalAmount":"0.00","itemCount":0,"orderCount":0}}
         """
         return try! JSONDecoder().decode(MonthSummaryDTO.self, from: Data(json.utf8))
     }

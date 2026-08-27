@@ -18,12 +18,14 @@ export interface OrderItemDto {
   categoryId: string;
   aiCategoryId: string | null;
   position: number;
+  isProtein: boolean;
 }
 
 export interface OrderSummaryDto {
   id: string;
   merchant: string;
   periodMonth: string;
+  periodWeek: number;
   currency: string;
   total: string;
   itemCount: number;
@@ -72,6 +74,7 @@ export function toOrderSummary(order: OrderWithItemCount): OrderSummaryDto {
     id: order.id,
     merchant: order.merchant,
     periodMonth: formatMonthLabel(order.periodMonth),
+    periodWeek: order.periodWeek,
     currency: order.currency,
     total: order.total.toFixed(2),
     itemCount: order._count.items,
@@ -86,6 +89,7 @@ export function toOrderDto(order: OrderWithItems): OrderDto {
     receiptId: order.receiptId,
     merchant: order.merchant,
     periodMonth: formatMonthLabel(order.periodMonth),
+    periodWeek: order.periodWeek,
     currency: order.currency,
     subtotal: order.subtotal.toFixed(2),
     tax: order.tax.toFixed(2),
@@ -123,5 +127,6 @@ export function toOrderItemDto(item: OrderWithItems["items"][number]): OrderItem
     categoryId: item.categoryId,
     aiCategoryId: item.aiCategoryId,
     position: item.position,
+    isProtein: item.isProtein,
   };
 }

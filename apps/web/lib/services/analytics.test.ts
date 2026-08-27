@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const monthlySummaryFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const weeklySummaryFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const proteinFindUnique = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderCount = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const getUserCurrency = vi.fn<(...args: unknown[]) => Promise<string>>();
 
@@ -24,6 +26,8 @@ class FakeDecimal {
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     monthlySummary: { findMany: (...args: unknown[]) => monthlySummaryFindMany(...args) },
+    weeklySummary: { findMany: (...args: unknown[]) => weeklySummaryFindMany(...args) },
+    proteinMonthlySummary: { findUnique: (...args: unknown[]) => proteinFindUnique(...args) },
     order: { count: (...args: unknown[]) => orderCount(...args) },
   },
   Prisma: { Decimal: FakeDecimal },
@@ -43,6 +47,15 @@ describe("getMonthSummary", () => {
       { categoryId: "dairy_eggs", totalAmount: new FakeDecimal(120), itemCount: 2, orderCount: 1 },
       { categoryId: "produce", totalAmount: new FakeDecimal(45.5), itemCount: 3, orderCount: 2 },
     ]);
+    weeklySummaryFindMany.mockResolvedValue([
+      { periodWeek: 1, totalAmount: new FakeDecimal(100), itemCount: 4, orderCount: 2 },
+      { periodWeek: 3, totalAmount: new FakeDecimal(65.5), itemCount: 1, orderCount: 1 },
+    ]);
+    proteinFindUnique.mockResolvedValue({
+      totalAmount: new FakeDecimal(30),
+      itemCount: 1,
+      orderCount: 1,
+    });
     orderCount.mockResolvedValue(3);
     getUserCurrency.mockResolvedValue("EGP");
 
@@ -60,10 +73,22 @@ describe("getMonthSummary", () => {
       emoji: "🥛",
       totalAmount: "120.00",
     });
+
+    // Always 5 weeks, zero-filled for any week the aggregate didn't return.
+    expect(summary.weeks).toEqual([
+      { week: 1, totalAmount: "100.00", itemCount: 4, orderCount: 2 },
+      { week: 2, totalAmount: "0.00", itemCount: 0, orderCount: 0 },
+      { week: 3, totalAmount: "65.50", itemCount: 1, orderCount: 1 },
+      { week: 4, totalAmount: "0.00", itemCount: 0, orderCount: 0 },
+      { week: 5, totalAmount: "0.00", itemCount: 0, orderCount: 0 },
+    ]);
+    expect(summary.protein).toEqual({ totalAmount: "30.00", itemCount: 1, orderCount: 1 });
   });
 
   it("returns a zero total for a month with no orders, not an error", async () => {
     monthlySummaryFindMany.mockResolvedValue([]);
+    weeklySummaryFindMany.mockResolvedValue([]);
+    proteinFindUnique.mockResolvedValue(null);
     orderCount.mockResolvedValue(0);
     getUserCurrency.mockResolvedValue("EGP");
 
@@ -72,6 +97,9 @@ describe("getMonthSummary", () => {
 
     expect(summary.totalAmount).toBe("0.00");
     expect(summary.categories).toEqual([]);
+    expect(summary.weeks).toHaveLength(5);
+    expect(summary.weeks.every((week) => week.totalAmount === "0.00")).toBe(true);
+    expect(summary.protein).toEqual({ totalAmount: "0.00", itemCount: 0, orderCount: 0 });
   });
 
   // A category slug that isn't in the seeded taxonomy falls back to the slug itself as its own
@@ -85,6 +113,8 @@ describe("getMonthSummary", () => {
         orderCount: 1,
       },
     ]);
+    weeklySummaryFindMany.mockResolvedValue([]);
+    proteinFindUnique.mockResolvedValue(null);
     orderCount.mockResolvedValue(1);
     getUserCurrency.mockResolvedValue("EGP");
 

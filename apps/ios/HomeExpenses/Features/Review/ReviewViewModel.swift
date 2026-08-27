@@ -14,6 +14,9 @@ struct EditableItem: Identifiable {
     /// has no AI reading to doubt. BR-2.6: rows below `ReviewViewModel.lowConfidenceThreshold` are
     /// flagged for a second look rather than silently trusted.
     var confidence: Double?
+    /// Rolls up into the month's own protein total regardless of this item's category or the
+    /// order's week — see `GET /analytics/month/:month`'s `protein` field.
+    var isProtein: Bool = false
 }
 
 /// Editable state for the review screen (PROJECT_SPEC.md §10, screen 4). Nothing is written to
@@ -25,6 +28,9 @@ final class ReviewViewModel: ObservableObject {
 
     @Published var merchant: String
     @Published var periodMonth: Date
+    /// 1-5, the week within `periodMonth` this order falls in. Defaults to week 1 — matches the
+    /// server default for an order that never states one (`periodWeekSchema.default(1)`).
+    @Published var periodWeek: Int = 1
     @Published var currency: String
     @Published var items: [EditableItem]
     @Published var tax: Decimal
@@ -237,13 +243,15 @@ final class ReviewViewModel: ObservableObject {
                 lineTotal: item.lineTotal.wireString,
                 categoryId: item.categoryId,
                 aiCategoryId: item.aiCategoryId,
-                position: index
+                position: index,
+                isProtein: item.isProtein
             )
         }
 
         let request = ConfirmReceiptRequest(
             merchant: merchant,
             periodMonth: MonthLabel.format(periodMonth),
+            periodWeek: periodWeek,
             currency: currency,
             subtotal: subtotal.wireString,
             tax: tax.wireString,

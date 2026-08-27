@@ -174,6 +174,7 @@ function scalarUpdates(
   return {
     ...(input.merchant !== undefined && { merchant: input.merchant.trim() || UNKNOWN_MERCHANT }),
     ...(periodMonth && { periodMonth }),
+    ...(input.periodWeek !== undefined && { periodWeek: input.periodWeek }),
     ...(input.currency !== undefined && { currency: input.currency }),
     ...(input.subtotal !== undefined && { subtotal: input.subtotal }),
     ...(input.tax !== undefined && { tax: input.tax }),
@@ -195,5 +196,6 @@ function toItemCreate(item: OrderItemInput): Prisma.OrderItemCreateWithoutOrderI
     category: { connect: { id: item.categoryId } },
     aiCategoryId: item.aiCategoryId ?? null,
     position: item.position,
+    isProtein: item.isProtein,
   };
 }
