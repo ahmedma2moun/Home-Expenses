@@ -127,6 +127,15 @@ describe("recomputeMonthlySummary — category aggregate", () => {
     });
     expect(upsert).not.toHaveBeenCalled();
   });
+
+  // Protein spend is tracked only in ProteinMonthlySummary — it must never be double-counted into
+  // the category totals that feed the overall month total.
+  it("excludes protein-flagged items from the aggregate query", async () => {
+    await run([]);
+
+    const [strings] = queryRaw.mock.calls[0] as [readonly string[]];
+    expect(strings.join("")).toContain('oi."isProtein" = false');
+  });
 });
 
 describe("recomputeMonthlySummary — weekly aggregate (total-only, no category split)", () => {
@@ -156,6 +165,14 @@ describe("recomputeMonthlySummary — weekly aggregate (total-only, no category 
       where: { userId: "user-1", periodMonth: JULY, periodWeek: { notIn: [] } },
     });
     expect(weeklyUpsert).not.toHaveBeenCalled();
+  });
+
+  // Same rule as the category aggregate — a protein item's cost belongs only in ProteinMonthlySummary.
+  it("excludes protein-flagged items from the aggregate query", async () => {
+    await run([], []);
+
+    const [strings] = queryRaw.mock.calls[1] as [readonly string[]];
+    expect(strings.join("")).toContain('oi."isProtein" = false');
   });
 });
 

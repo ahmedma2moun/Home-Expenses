@@ -272,9 +272,11 @@ legitimately have none. It is display-only and does not affect price-history mat
 
 `periodWeek` (1-5, week within `periodMonth`) defaults to `1` when omitted — an order with no week
 opinion just reads as week 1, same as an order created before this field existed. `isProtein`
-defaults to `false` on every item and cuts across categories: it rolls up into
-`GET /analytics/month/:month`'s `protein` total regardless of the item's `categoryId` or the
-order's `periodWeek`.
+defaults to `false` on every item. A protein-flagged item is **excluded** from
+`GET /analytics/month/:month`'s `totalAmount`/`categories`/`weeks` — it counts only toward that
+response's separate `protein` total, regardless of the item's `categoryId` or the order's
+`periodWeek`. The order's own `total`/`subtotal` (what was actually paid) are unaffected either
+way — the exclusion is in the monthly/weekly expense aggregate only.
 
 Response `200`:
 
@@ -340,11 +342,17 @@ PROJECT_SPEC.md §4's BR-5 aren't in this response — only what's shown above i
 currency breakdown here because there's no multi-currency support (see the confirm/update note
 below). Every amount in this response is in this currency.
 
-`weeks` always has exactly 5 entries (week 1-5), zero-filled for any week with no spending — the
-month total split by `Order.periodWeek`, total-only (no per-category breakdown per week). `protein`
-is a single month-level total of every `OrderItem.isProtein = true` line, zero-filled when none
-exist — it cuts across both categories and weeks by design (an order's week doesn't affect whether
-its protein items count).
+**`totalAmount`, `categories`, and `weeks` all exclude items flagged `OrderItem.isProtein`.**
+Protein spend is tracked only in the separate `protein` field below — it is never double-counted
+into the regular category/week/month figures. A category or week made up entirely of protein items
+can legitimately be absent/zero here even though real money was spent, because that spend already
+counts in `protein`.
+
+`weeks` always has exactly 5 entries (week 1-5), zero-filled for any week with no (non-protein)
+spending — the month total split by `Order.periodWeek`, total-only (no per-category breakdown per
+week). `protein` is a single month-level total of every `OrderItem.isProtein = true` line,
+zero-filled when none exist — it is unaffected by category or `periodWeek` (an order's week doesn't
+affect whether its protein items count, and they count here regardless of category).
 
 ## `GET /orders`
 

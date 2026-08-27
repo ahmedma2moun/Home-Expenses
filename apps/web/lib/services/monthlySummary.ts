@@ -45,6 +45,11 @@ export async function recomputeMonthlySummary(
   ]);
 }
 
+/**
+ * Excludes `isProtein` items — protein spend is tracked only in `ProteinMonthlySummary`, never
+ * double-counted into the category/month/week totals (the user asked for it excluded from "the
+ * monthly expense" entirely, not just broken out alongside it).
+ */
 async function recomputeCategorySummary(tx: Tx, userId: string, periodMonth: Date): Promise<void> {
   const rows = await tx.$queryRaw<CategoryAggregateRow[]>`
     SELECT oi."categoryId"                  AS "categoryId",
@@ -53,7 +58,7 @@ async function recomputeCategorySummary(tx: Tx, userId: string, periodMonth: Dat
            COUNT(DISTINCT oi."orderId")      AS "orderCount"
     FROM "OrderItem" oi
     JOIN "Order" o ON o.id = oi."orderId"
-    WHERE o."userId" = ${userId} AND o."periodMonth" = ${periodMonth}
+    WHERE o."userId" = ${userId} AND o."periodMonth" = ${periodMonth} AND oi."isProtein" = false
     GROUP BY oi."categoryId"
   `;
 
@@ -87,6 +92,7 @@ async function recomputeCategorySummary(tx: Tx, userId: string, periodMonth: Dat
 /**
  * Total-only per week (no category split — confirmed with the user), grouped on `Order.periodWeek`
  * rather than `OrderItem` so an item without its own week concept still rolls up under its order's.
+ * Excludes `isProtein` items for the same reason `recomputeCategorySummary` does.
  */
 async function recomputeWeeklySummary(tx: Tx, userId: string, periodMonth: Date): Promise<void> {
   const rows = await tx.$queryRaw<WeekAggregateRow[]>`
@@ -96,7 +102,7 @@ async function recomputeWeeklySummary(tx: Tx, userId: string, periodMonth: Date)
            COUNT(DISTINCT oi."orderId")      AS "orderCount"
     FROM "OrderItem" oi
     JOIN "Order" o ON o.id = oi."orderId"
-    WHERE o."userId" = ${userId} AND o."periodMonth" = ${periodMonth}
+    WHERE o."userId" = ${userId} AND o."periodMonth" = ${periodMonth} AND oi."isProtein" = false
     GROUP BY o."periodWeek"
   `;
 
