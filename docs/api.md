@@ -348,7 +348,7 @@ Response `200`:
         { "week": 5, "budgetAmount": "600.00", "spentAmount": "515.00", "remaining": "85.00" }
       ],
       "protein": { "budgetAmount": "350.00", "spentAmount": "310.00", "remaining": "40.00" },
-      "month": { "budgetAmount": null, "spentAmount": "1840.00", "remaining": null }
+      "month": { "budgetAmount": null, "spentAmount": "2150.00", "remaining": null }
     }
   }
 }
@@ -376,27 +376,32 @@ regardless of category).
 
 `budget` carries whatever the user has set via `PUT /budgets/:month`, plus what's actually been
 spent against it and what's left. `weeks[].spentAmount` and `month.spentAmount` are **actual cash
-out** — `Σ(order.actualPaid ?? order.total)` — not the item-based `totalAmount`/`categories` above:
-they include tax and discount (baked into `total`) and reflect `actualPaid` overrides, neither of
-which the item-based figures do. They can legitimately differ from `totalAmount` for that reason.
-`protein.spentAmount` is the exception — it reuses the item-based `protein.totalAmount` above, since
-`actualPaid` is an order-level fact with no principled way to attribute it to just the protein items
-in an order.
+out** — not the item-based `totalAmount`/`categories` above: they include tax and discount (baked
+into `total`) and reflect `actualPaid` overrides, neither of which the item-based figures do. They
+can legitimately differ from `totalAmount` for that reason.
+
+**`weeks[].spentAmount` excludes protein spend.** Protein has its own separate target
+(`protein.budgetAmount`/`spentAmount`), so a protein purchase counts there and *not* toward the week
+it happened to fall in — same rule `weeks` (the item-based breakdown above `budget`) already follows
+for the same reason. Concretely, `weeks[].spentAmount` is
+`Σ(order.actualPaid ?? order.total) − (that order's protein-item total)` per order, summed by week —
+not a per-item filter, since `actualPaid` is an order-level fact (a tip, rounding, a register
+discount) with no principled per-item price to include or exclude in the first place.
+`protein.spentAmount` is the item-based `protein.totalAmount` figure from above, reused as-is.
 
 `budgetAmount` is `null` for any week (or `protein`) with no budget set — `remaining` is `null` too in
 that case, since there's nothing to compare spend against.
 
-`month.budgetAmount` is `Σ(weeks[].budgetAmount)` — **and only that**, `protein.budgetAmount` is
-deliberately left out of it, even though it's a monthly target too. Protein isn't separate money:
-every protein purchase already sits inside whichever week's order it was bought in, so it's already
-counted in that week's `spentAmount`. Adding `protein.budgetAmount` on top of the week budgets would
-size the month target for cash that was never actually free to spend a second time, which silently
-inflates `month.remaining` by the whole protein budget. Protein stays visible as its own line
-(`protein`) — a second, overlapping lens on the same cash, not additional cash. `month.budgetAmount`
-is also `null` unless **every** week (1-5) has a budget set — comparing a partial target (say, only
-one week budgeted) against the whole month's spend would read as "over/under budget" against money
-three other weeks never had a target for. It's computed on every read, never stored, so it can't
-drift from its parts.
+`month.budgetAmount` is `Σ(weeks[].budgetAmount) + protein.budgetAmount`, and `month.spentAmount` is
+`Σ(weeks[].spentAmount) + protein.spentAmount` — adding protein in on both sides is safe precisely
+*because* `weeks[].spentAmount` excludes it: a protein purchase is counted exactly once, via
+`protein.spentAmount`, never via whichever week it fell in. `month.budgetAmount` is still `null`
+unless **every** week (1-5) has a budget set — comparing a partial target (say, only one week
+budgeted) against the whole month's spend would read as "over/under budget" against money three
+other weeks never had a target for. Protein itself has no such gate: an unset protein budget just
+contributes `0` to `month.budgetAmount`, which is correct — protein spend with no target for it
+still counts in `month.spentAmount` and reduces `month.remaining`. `month.budgetAmount` is computed
+on every read, never stored, so it can't drift from its parts.
 
 ## `GET /budgets/:month`
 

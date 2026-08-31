@@ -9,6 +9,9 @@ const WRITE_TRANSACTION_OPTIONS = { timeout: 15_000, maxWait: 5_000 };
 export interface WeekBudgetDto {
   week: number;
   budgetAmount: string | null;
+  /** Actual cash out for the week — `Σ(order.actualPaid ?? order.total)`, **excluding protein
+   *  spend** (see `getWeeklyActualSpend`). Protein has its own separate budget/spend (`protein`
+   *  below); a protein purchase counts there, not here, regardless of which week it fell in. */
   spentAmount: string;
   /** `null` when no budget is set for this week — there's nothing to be "remaining" against. */
   remaining: string | null;
@@ -21,14 +24,16 @@ export interface ProteinBudgetDto {
 }
 
 export interface MonthBudgetDto {
-  /** Σ(week budgetAmount), but **only** when every week (1-5) has one set — see the note on
-   *  `consolidateMonthBudget`. `null` otherwise, including when nothing at all is budgeted. */
+  /** Σ(week budgetAmount) + protein budgetAmount, but the week sum only counts **once every week
+   *  (1-5) has one set** — see the note on `consolidateMonthBudget`. `null` when that condition
+   *  isn't met, including when nothing at all is budgeted. */
   budgetAmount: string | null;
-  /** Actual cash out for the month: Σ(COALESCE(order.actualPaid, order.total)) across every order,
-   *  every week — not the item-based `MonthSummary.totalAmount` shown elsewhere on the page, which
-   *  excludes tax/discount and can't reflect `actualPaid` (it's an order-level fact, not
-   *  distributable to individual items). Protein spend is included here, same as it's included in
-   *  any single week's `spentAmount` — it's still cash that left the wallet that week. */
+  /** Σ(weeks[].spentAmount) + protein.spentAmount — actual cash out for the whole month. Adding
+   *  the two is safe because they're now non-overlapping: `weeks[].spentAmount` excludes protein
+   *  cash (see its own doc comment), so a protein purchase is counted here exactly once, via
+   *  `protein.spentAmount`. Not the item-based `MonthSummary.totalAmount` shown elsewhere on the
+   *  page, which excludes tax/discount and can't reflect `actualPaid` (an order-level fact, not
+   *  distributable to individual items). */
   spentAmount: string;
   remaining: string | null;
 }
@@ -47,19 +52,38 @@ interface WeekActualRow {
   total: Prisma.Decimal | string | number;
 }
 
-/** Live query over `Order`, not a materialized summary — mirrors how `getMonthSummary` already
- *  counts orders live (PROJECT_SPEC.md §12 only forbids scanning `OrderItem` at request time). Not
- *  filtered to `periodWeek` 1-5: the column carries no DB check constraint, so an out-of-range row
- *  (there shouldn't be one — `periodWeekSchema` guards every write path) still counts toward the
- *  month total rather than silently vanishing from it. */
+/**
+ * Live query over `Order`/`OrderItem`, not a materialized summary — mirrors how `getMonthSummary`
+ * already counts orders live (PROJECT_SPEC.md §12 only forbids scanning `OrderItem` at request
+ * time). **Excludes protein spend**, same rule as `WeeklySummary` (`monthlySummary.ts`'s
+ * `recomputeWeeklySummary`): protein has its own separate budget (`ProteinBudgetDto`), so a
+ * protein purchase counts toward that and *not* toward the week it happened to fall in.
+ *
+ * The exclusion is applied per order — `SUM(COALESCE(actualPaid, total)) - (that order's protein
+ * item total)` — then summed by week, rather than filtering `OrderItem` rows directly: `actualPaid`
+ * is an order-level fact (tip, rounding, a register discount), so there's no principled per-item
+ * price to sum in the first place. An order that's *entirely* protein still leaves a small residual
+ * here equal to its tax/discount/tip — the same limitation `ProteinBudgetDto.spentAmount`'s own doc
+ * comment already calls out for the reverse direction.
+ *
+ * Not filtered to `periodWeek` 1-5: the column carries no DB check constraint, so an out-of-range
+ * row (there shouldn't be one — `periodWeekSchema` guards every write path) still counts toward the
+ * month total rather than silently vanishing from it.
+ */
 async function getWeeklyActualSpend(
   userId: string,
   periodMonth: Date,
 ): Promise<Map<number, Prisma.Decimal>> {
   const rows = await prisma.$queryRaw<WeekActualRow[]>`
-    SELECT o."periodWeek"                          AS "periodWeek",
-           SUM(COALESCE(o."actualPaid", o."total")) AS "total"
+    SELECT o."periodWeek" AS "periodWeek",
+           SUM(COALESCE(o."actualPaid", o."total") - COALESCE(protein."proteinTotal", 0)) AS "total"
     FROM "Order" o
+    LEFT JOIN (
+      SELECT oi."orderId" AS "orderId", SUM(oi."lineTotal") AS "proteinTotal"
+      FROM "OrderItem" oi
+      WHERE oi."isProtein" = true
+      GROUP BY oi."orderId"
+    ) protein ON protein."orderId" = o.id
     WHERE o."userId" = ${userId} AND o."periodMonth" = ${periodMonth}
     GROUP BY o."periodWeek"
   `;
@@ -131,11 +155,10 @@ export async function getBudgetSummary(
     remaining: remainingOf(proteinBudgetAmount, proteinSpent),
   };
 
-  const monthBudgetAmount = consolidateMonthBudget(weeks, budgetByWeek);
-  const monthSpentAmount = Array.from(weeklyActualSpend.values()).reduce(
-    (sum, amount) => sum.add(amount),
-    ZERO,
-  );
+  const monthBudgetAmount = consolidateMonthBudget(weeks, budgetByWeek, proteinBudgetAmount);
+  const monthSpentAmount = Array.from(weeklyActualSpend.values())
+    .reduce((sum, amount) => sum.add(amount), ZERO)
+    .add(proteinSpent);
   const month: MonthBudgetDto = {
     budgetAmount: monthBudgetAmount?.toFixed(2) ?? null,
     spentAmount: monthSpentAmount.toFixed(2),
@@ -146,26 +169,32 @@ export async function getBudgetSummary(
 }
 
 /**
- * Σ(week budgets) — deliberately **excludes** the protein budget, even though the product ask was
- * "the sum of all budgets." Protein isn't separate money: every protein purchase is already inside
- * whichever week's order it was bought in, so `spentAmount` never double-counts it — folding
- * `proteinBudget` into this total on top of the week budgets would size the target for money that
- * isn't there, silently inflating `remaining` by the whole protein budget. Protein stays visible as
- * its own line (`BudgetSummary.protein`) instead — a second, overlapping lens on the same cash, not
- * an addition to it.
+ * Σ(week budgets) + protein budget — safe to add the two because `getWeeklyActualSpend` excludes
+ * protein cash from `weeks[].spentAmount`, so `month.spentAmount` never double-counts a protein
+ * purchase either; budget and spend stay on the same footing. (An earlier version of this function
+ * excluded the protein budget here specifically because weekly spend *did* include protein cash
+ * back then — that's no longer true, so the exclusion would now just be wrong in the other
+ * direction: real protein spend with a real protein budget, silently missing from the total.)
  *
- * Also `null` unless **every** week (1-5) has a budget set: a partial target (say, only week 1)
+ * Still `null` unless **every** week (1-5) has a budget set: a partial target (say, only week 1)
  * compared against the whole month's spend would read as "over/under budget" against money three
- * other weeks never had a target for — not a number worth showing at all.
+ * other weeks never had a target for — not a number worth showing at all. Protein has no such gate
+ * of its own: an unset protein budget just contributes `0` to the total, which is correct — money
+ * spent on protein with no target for it still reduces `remaining` against the weeks' targets.
  */
 function consolidateMonthBudget(
   weeks: WeekBudgetDto[],
   budgetByWeek: Map<number, Prisma.Decimal>,
+  proteinBudgetAmount: Prisma.Decimal | null,
 ): Prisma.Decimal | null {
   if (!weeks.every((week) => week.budgetAmount !== null)) {
     return null;
   }
-  return Array.from(budgetByWeek.values()).reduce((sum, amount) => sum.add(amount), ZERO);
+  const weekTotal = Array.from(budgetByWeek.values()).reduce(
+    (sum, amount) => sum.add(amount),
+    ZERO,
+  );
+  return weekTotal.add(proteinBudgetAmount ?? ZERO);
 }
 
 /**

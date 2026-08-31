@@ -169,14 +169,17 @@ describe("getBudgetSummary", () => {
     const { getBudgetSummary } = await import("./budgets");
     const summary = await getBudgetSummary("user-1", JULY);
 
-    expect(summary.month).toEqual({ budgetAmount: null, spentAmount: "1330.00", remaining: null });
+    // 1330 (weeks 1+3's live spend) + 310 (protein spend) — spend is totalled even though the
+    // budget side stays unset.
+    expect(summary.month).toEqual({ budgetAmount: null, spentAmount: "1640.00", remaining: null });
   });
 
-  // Every week budgeted (350 x 5 = 1750) plus a protein budget on top — the month total must equal
-  // Σ(week budgets) only. Protein spend already rides inside its week's `spentAmount`, so adding
-  // the protein *budget* on top without adding protein *spend* on top would inflate `remaining` by
-  // exactly the protein budget — the bug this test guards against.
-  it("consolidates the month budget from weeks alone once every week is set, excluding protein", async () => {
+  // Every week budgeted (350 x 5 = 1750) plus a protein budget (300) on top — the month total is
+  // Σ(week budgets) + protein budget, and spend is Σ(week spend) + protein spend. Adding protein on
+  // both sides is safe (unlike an earlier version of this function) because `getWeeklyActualSpend`
+  // now excludes protein cash from the weekly figures it returns — see the "excludes protein
+  // spend" test below — so a protein purchase is never counted twice.
+  it("consolidates the month budget and spend from weeks plus protein once every week is budgeted", async () => {
     weeklyBudgetFindMany.mockResolvedValue(
       [1, 2, 3, 4, 5].map((week) => ({ periodWeek: week, amount: new FakeDecimal(350) })),
     );
@@ -188,10 +191,29 @@ describe("getBudgetSummary", () => {
     const summary = await getBudgetSummary("user-1", JULY);
 
     expect(summary.month).toEqual({
-      budgetAmount: "1750.00",
-      spentAmount: "300.00",
-      remaining: "1450.00",
+      budgetAmount: "2050.00", // 350*5 + 300
+      spentAmount: "550.00", // 300 + 250
+      remaining: "1500.00",
     });
+  });
+
+  // `getWeeklyActualSpend` subtracts each order's protein-item total from its cash total before
+  // grouping by week — this doesn't re-derive that arithmetic (the query itself is trusted, same as
+  // every other raw query in this codebase), it only proves the join that does the subtracting is
+  // actually present, so a future edit can't quietly drop it back to counting protein twice.
+  it("excludes protein spend from the weekly query", async () => {
+    weeklyBudgetFindMany.mockResolvedValue([]);
+    proteinBudgetFindUnique.mockResolvedValue(null);
+    proteinMonthlySummaryFindUnique.mockResolvedValue(null);
+    queryRaw.mockResolvedValue([]);
+
+    const { getBudgetSummary } = await import("./budgets");
+    await getBudgetSummary("user-1", JULY);
+
+    const [strings] = queryRaw.mock.calls[0] as [readonly string[]];
+    const sql = strings.join("");
+    expect(sql).toContain('oi."isProtein" = true');
+    expect(sql).toContain('protein."proteinTotal"');
   });
 
   // A caller that already has the protein row (`getMonthSummary`) passes it in — no second

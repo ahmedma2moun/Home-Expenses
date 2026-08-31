@@ -56,9 +56,10 @@ export interface MonthSummary {
    *  week. Already included in `totalAmount`/`categories` above; only absent from `weeks`.
    *  Zero-filled when no protein items exist this month (`ProteinMonthlySummary`). */
   protein: ProteinTotal;
-  /** Weekly + protein budget targets, actual spend, and remaining — see `budgets.ts`. Consolidated
-   *  monthly budget/spend live at `budget.month`, derived from the weeks alone — protein is a
-   *  separate, overlapping line, never folded in (see `consolidateMonthBudget`) — and never stored. */
+  /** Weekly + protein budget targets, actual spend, and remaining — see `budgets.ts`. Weekly
+   *  spend/budgets exclude protein (it has its own line, `budget.protein`); the consolidated
+   *  `budget.month` sums both, since they're non-overlapping — computed on every read, never
+   *  stored. */
   budget: BudgetSummary;
 }
 

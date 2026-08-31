@@ -8,8 +8,11 @@ struct WeekBudgetDTO: Decodable, Identifiable, Sendable {
     let week: Int
     /// `nil` when no budget is set for this week — nothing to compare `spentAmount` against.
     let budgetAmount: MoneyString?
-    /// Actual cash out for the week: `Σ(order.actualPaid ?? order.total)` — not the item-based
-    /// `WeekTotalDTO.totalAmount` shown in the by-week breakdown, which excludes tax/discount/tips.
+    /// Actual cash out for the week: `Σ(order.actualPaid ?? order.total)`, **excluding protein
+    /// spend** — protein has its own separate target (`ProteinBudgetDTO`), so a protein purchase
+    /// counts there, not here, regardless of which week it fell in. Not the item-based
+    /// `WeekTotalDTO.totalAmount` shown in the by-week breakdown either, which excludes
+    /// tax/discount/tips on top of protein.
     let spentAmount: MoneyString
     /// `nil` when `budgetAmount` is `nil`; otherwise `budgetAmount - spentAmount` (can be negative).
     let remaining: MoneyString?
@@ -24,15 +27,15 @@ struct ProteinBudgetDTO: Decodable, Sendable {
 }
 
 struct MonthBudgetDTO: Decodable, Sendable {
-    /// Σ(week budgetAmount) — and only that. `protein.budgetAmount` is deliberately **not** folded
-    /// in here: every protein purchase already sits inside whichever week's `spentAmount` it was
-    /// bought in, so adding the protein target on top of the week targets would size this figure
-    /// for cash that isn't actually free to spend a second time. Also `nil` unless every week
-    /// (1-5) has a budget set — a partial target compared against the whole month's spend would be
-    /// misleading. Derived server-side on every read, never stored.
+    /// Σ(week budgetAmount) + `protein.budgetAmount`. Safe to add protein in on top of the weeks
+    /// because `WeekBudgetDTO.spentAmount` excludes protein cash — a protein purchase is never
+    /// counted twice between a week's target and protein's own. `nil` unless every week (1-5) has
+    /// a budget set — a partial target compared against the whole month's spend would be
+    /// misleading; protein has no such gate, an unset protein budget just contributes 0. Derived
+    /// server-side on every read, never stored.
     let budgetAmount: MoneyString?
-    /// Σ(weeks[].spentAmount) — actual cash out for the whole month, protein spend included (it's
-    /// already inside whichever week it fell in).
+    /// Σ(weeks[].spentAmount) + `protein.spentAmount` — actual cash out for the whole month. Adding
+    /// the two doesn't double-count protein, since `weeks[].spentAmount` already excludes it.
     let spentAmount: MoneyString
     let remaining: MoneyString?
 }

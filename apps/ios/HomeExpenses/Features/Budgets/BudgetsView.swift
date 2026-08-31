@@ -84,7 +84,7 @@ struct BudgetsView: View {
             } header: {
                 Text("Protein")
             } footer: {
-                Text("Tracked separately — protein purchases still count toward their week's budget above too.")
+                Text("Tracked separately — protein purchases count only here, not toward the week they fell in.")
             }
 
             if let errorMessage = viewModel.errorMessage {
