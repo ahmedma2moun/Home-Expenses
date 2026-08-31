@@ -105,7 +105,7 @@ struct SummaryView: View {
                     Text("Total spend")
                         .font(.title3.bold())
                     Spacer()
-                    Text(summary.totalAmount.value.formatted(currencyCode: summary.currency))
+                    Text(totalSpend(summary).formatted(currencyCode: summary.currency))
                         .font(.title3.bold())
                 }
                 HStack {
@@ -114,30 +114,16 @@ struct SummaryView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
-                if let budget = summary.budget,
-                    let monthBudget = budget.month.budgetAmount?.value,
-                    let monthRemaining = budget.month.remaining?.value
-                {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text("Budget remaining")
-                                .font(.footnote)
-                            Spacer()
-                            Text(monthRemaining.formatted(currencyCode: summary.currency))
-                                .font(.footnote)
-                                .monospacedDigit()
-                                .foregroundStyle(monthRemaining < 0 ? .red : .secondary)
-                        }
-                        // "Total spend" above is item-based (excludes tax/discount/`actualPaid`);
-                        // this line is the order-cash figure the remaining above is actually
-                        // measured against, so the two numbers aren't left to silently disagree.
-                        Text(
-                            "\(budget.month.spentAmount.value.formatted(currencyCode: summary.currency)) of \(monthBudget.formatted(currencyCode: summary.currency)) budget spent"
-                        )
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                if let monthRemaining = summary.budget?.month.remaining?.value {
+                    HStack {
+                        Text("Budget remaining")
+                            .font(.footnote)
+                        Spacer()
+                        Text(monthRemaining.formatted(currencyCode: summary.currency))
+                            .font(.footnote)
+                            .monospacedDigit()
+                            .foregroundStyle(monthRemaining < 0 ? .red : .secondary)
                     }
-                    .accessibilityElement(children: .combine)
                 }
             }
 
@@ -217,23 +203,19 @@ struct SummaryView: View {
     }
 
     private func weekRow(_ week: WeekTotalDTO, budget: WeekBudgetDTO?, currency: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        // Cash spend when known (nets out tax/discount/`actualPaid`, matching what "Remaining"
+        // below is measured against) — the item-based `week.totalAmount` only when a backend
+        // without the budget field is still in play.
+        let displayAmount = budget?.spentAmount.value ?? week.totalAmount.value
+        return VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text("Week \(week.week)")
                 Spacer()
-                Text(week.totalAmount.value.formatted(currencyCode: currency))
+                Text(displayAmount.formatted(currencyCode: currency))
                     .monospacedDigit()
                     .foregroundStyle(week.itemCount > 0 ? .primary : .secondary)
             }
-            if let budget, let budgetAmount = budget.budgetAmount?.value, let remaining = budget.remaining?.value {
-                // The number above is item-based (no tax/discount/`actualPaid`) — "Remaining" is
-                // computed from the cash figure here instead, which is why the two can disagree
-                // (e.g. a register discount lowers cash spend but not the item total above).
-                Text(
-                    "\(budget.spentAmount.value.formatted(currencyCode: currency)) of \(budgetAmount.formatted(currencyCode: currency)) budget spent"
-                )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if let remaining = budget?.remaining?.value {
                 Text("\(remaining < 0 ? "Over by" : "Remaining") \(abs(remaining).formatted(currencyCode: currency))")
                     .font(.caption)
                     .foregroundStyle(remaining < 0 ? .red : .secondary)
@@ -247,6 +229,13 @@ struct SummaryView: View {
     /// caller's `week`, so this matches on the week number rather than assuming index parity.
     private func budgetForWeek(_ week: Int, in summary: MonthSummaryDTO) -> WeekBudgetDTO? {
         summary.budget?.weeks.first { $0.week == week }
+    }
+
+    /// Cash spend for the whole month when known (nets out tax/discount/`actualPaid`, protein
+    /// included — matches what "Budget remaining" above is measured against) — the item-based
+    /// `totalAmount` only when a backend without the budget field is still in play.
+    private func totalSpend(_ summary: MonthSummaryDTO) -> Decimal {
+        summary.budget?.month.spentAmount.value ?? summary.totalAmount.value
     }
 
     private func expansionBinding(for categoryId: String) -> Binding<Bool> {
