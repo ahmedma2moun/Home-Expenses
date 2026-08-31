@@ -10,6 +10,7 @@ struct ReviewView: View {
         case itemLineTotal(UUID)
         case tax
         case discount
+        case actualPaid
     }
 
     @StateObject private var viewModel: ReviewViewModel
@@ -131,6 +132,22 @@ struct ReviewView: View {
                             .multilineTextAlignment(.trailing)
                             .focused($focusedField, equals: .discount)
                     }
+                }
+
+                Section {
+                    Toggle("Actual amount paid", isOn: $viewModel.hasActualPaid)
+                    if viewModel.hasActualPaid {
+                        HStack {
+                            Text("Actual paid")
+                            Spacer()
+                            TextField("Actual paid", value: $viewModel.actualPaid, format: .number)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .focused($focusedField, equals: .actualPaid)
+                        }
+                    }
+                } footer: {
+                    Text("Only if it differs from the total below — a tip, rounding, or a register discount.")
                 }
 
                 if let categoriesError = viewModel.categoriesError {

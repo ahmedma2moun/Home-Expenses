@@ -142,7 +142,7 @@ private struct OrderRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(order.total.value.formatted(currencyCode: order.currency))
+            Text(order.displayTotal.formatted(currencyCode: order.currency))
                 .monospacedDigit()
         }
         .accessibilityElement(children: .combine)

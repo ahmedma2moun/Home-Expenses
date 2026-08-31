@@ -77,6 +77,7 @@ export async function confirmReceipt(
           tax: input.tax,
           discount: input.discount,
           total: input.total,
+          actualPaid: input.actualPaid ?? null,
           notes: input.notes ?? null,
           source: "receipt",
           items: {

@@ -40,4 +40,10 @@ struct MonthSummaryDTO: Decodable, Sendable {
     let categories: [MonthCategoryTotalDTO]
     let weeks: [WeekTotalDTO]
     let protein: ProteinTotalDTO
+    /// Weekly + protein budget targets, actual spend, and remaining — see `BudgetSummaryDTO`.
+    /// Optional, not because the backend ever omits it, but because this DTO is decoded by Home,
+    /// Analytics, *and* the widget (`SpendWidgetProvider`) — a client build briefly ahead of a
+    /// backend deploy shouldn't fail every one of those over a field none of them strictly need
+    /// yet, the same reasoning as `Order.periodWeek` defaulting rather than erroring.
+    let budget: BudgetSummaryDTO?
 }

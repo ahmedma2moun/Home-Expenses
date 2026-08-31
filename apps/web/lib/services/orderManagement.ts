@@ -180,6 +180,7 @@ function scalarUpdates(
     ...(input.tax !== undefined && { tax: input.tax }),
     ...(input.discount !== undefined && { discount: input.discount }),
     ...(input.total !== undefined && { total: input.total }),
+    ...(input.actualPaid !== undefined && { actualPaid: input.actualPaid }),
     ...(input.notes !== undefined && { notes: input.notes }),
   };
 }

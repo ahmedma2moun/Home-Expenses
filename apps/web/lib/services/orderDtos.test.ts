@@ -88,6 +88,18 @@ describe("toOrderSummary", () => {
       itemCount: 4,
     });
   });
+
+  it("passes through null when no actualPaid was recorded", () => {
+    const dto = toOrderSummary(orderWithItems({ _count: { items: 1 } }) as never);
+    expect(dto.actualPaid).toBeNull();
+  });
+
+  it("formats actualPaid as a two-decimal string when set", () => {
+    const dto = toOrderSummary(
+      orderWithItems({ actualPaid: decimal("135.00"), _count: { items: 1 } }) as never,
+    );
+    expect(dto.actualPaid).toBe("135.00");
+  });
 });
 
 describe("toOrderDto", () => {

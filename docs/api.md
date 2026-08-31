@@ -39,10 +39,12 @@ web clients talk to.
 | `GET` | `/categories` | required | **live** | Taxonomy, active categories only |
 | `GET` | `/items/price-history?name=` | required | **live** | Every past purchase of one item, its cheapest store, and whether the price jumped last time. See below |
 | `POST` | `/items/price-check` | required | **live** | Batch price-creep/cheapest-store check for a receipt's unconfirmed draft items. See below |
-| `GET` | `/analytics/month/:month` | required | **live** | Totals, per-category breakdown, per-week breakdown, and protein spend for one month. See below |
+| `GET` | `/analytics/month/:month` | required | **live** | Totals, per-category breakdown, per-week breakdown, protein spend, and budget/remaining for one month. See below |
 | `GET` | `/analytics/trends?months=12` | required | **live** | Series of monthly totals + per-category series |
 | `GET` | `/analytics/price-watch?month=` | required | **live** | Items bought this month whose price jumped at the same merchant. See below |
 | `POST` | `/analytics/compare` | required | **live** | `{ monthA?, monthB, refresh? }` → cached or fresh AI narrative. Omitting `monthA` compares against a trailing 3-month baseline instead of a second real month. See below |
+| `GET` | `/budgets/:month` | required | **live** | This month's budget targets, spend, and remaining — same `budget` shape embedded in `GET /analytics/month/:month`. See below |
+| `PUT` | `/budgets/:month` | required | **live** | Sets some or all of a month's weekly budgets plus its protein budget. See below |
 | `GET` | `/health` | none | **live** | Liveness + DB + AI provider reachability |
 | `POST` | `/echo` | debug token | **live** | Deploy smoke test — round-trips a question through the configured AI provider (not part of the product API) |
 
@@ -248,6 +250,7 @@ Request:
   "tax": "38.00",
   "discount": "0.00",
   "total": "650.00",
+  "actualPaid": null,
   "notes": null,
   "items": [
     {
@@ -276,6 +279,12 @@ defaults to `false` on every item. A protein-flagged item counts normally toward
 `GET /analytics/month/:month`'s `totalAmount`/`categories` (same as any other item) **and** toward
 that response's separate `protein` total — it is excluded only from `weeks`, regardless of the
 item's `categoryId` or the order's `periodWeek`.
+
+`actualPaid` is optional, nullable, and non-negative — what actually left the wallet (tip, rounding,
+a register discount) when it differs from `total`. Omit or send `null` when it's the same as `total`.
+Clients display `actualPaid ?? total` wherever an order's total appears (order list, order detail);
+`total` itself is never overwritten, so the original receipt figure stays visible. It also feeds
+`GET /analytics/month/:month`'s `budget` block — see below.
 
 Response `200`:
 
@@ -329,7 +338,18 @@ Response `200`:
       { "week": 4, "totalAmount": "0.00", "itemCount": 0, "orderCount": 0 },
       { "week": 5, "totalAmount": "500.00", "itemCount": 14, "orderCount": 3 }
     ],
-    "protein": { "totalAmount": "310.00", "itemCount": 9, "orderCount": 5 }
+    "protein": { "totalAmount": "310.00", "itemCount": 9, "orderCount": 5 },
+    "budget": {
+      "weeks": [
+        { "week": 1, "budgetAmount": "600.00", "spentAmount": "520.00", "remaining": "80.00" },
+        { "week": 2, "budgetAmount": null, "spentAmount": "0.00", "remaining": null },
+        { "week": 3, "budgetAmount": "600.00", "spentAmount": "805.00", "remaining": "-205.00" },
+        { "week": 4, "budgetAmount": null, "spentAmount": "0.00", "remaining": null },
+        { "week": 5, "budgetAmount": "600.00", "spentAmount": "515.00", "remaining": "85.00" }
+      ],
+      "protein": { "budgetAmount": "350.00", "spentAmount": "310.00", "remaining": "40.00" },
+      "month": { "budgetAmount": null, "spentAmount": "1840.00", "remaining": null }
+    }
   }
 }
 ```
@@ -354,6 +374,79 @@ week), excluding protein items. `protein` is a single month-level total of every
 `periodWeek` (an order's week doesn't affect whether its protein items count, and they count here
 regardless of category).
 
+`budget` carries whatever the user has set via `PUT /budgets/:month`, plus what's actually been
+spent against it and what's left. `weeks[].spentAmount` and `month.spentAmount` are **actual cash
+out** — `Σ(order.actualPaid ?? order.total)` — not the item-based `totalAmount`/`categories` above:
+they include tax and discount (baked into `total`) and reflect `actualPaid` overrides, neither of
+which the item-based figures do. They can legitimately differ from `totalAmount` for that reason.
+`protein.spentAmount` is the exception — it reuses the item-based `protein.totalAmount` above, since
+`actualPaid` is an order-level fact with no principled way to attribute it to just the protein items
+in an order.
+
+`budgetAmount` is `null` for any week (or `protein`) with no budget set — `remaining` is `null` too in
+that case, since there's nothing to compare spend against.
+
+`month.budgetAmount` is `Σ(weeks[].budgetAmount)` — **and only that**, `protein.budgetAmount` is
+deliberately left out of it, even though it's a monthly target too. Protein isn't separate money:
+every protein purchase already sits inside whichever week's order it was bought in, so it's already
+counted in that week's `spentAmount`. Adding `protein.budgetAmount` on top of the week budgets would
+size the month target for cash that was never actually free to spend a second time, which silently
+inflates `month.remaining` by the whole protein budget. Protein stays visible as its own line
+(`protein`) — a second, overlapping lens on the same cash, not additional cash. `month.budgetAmount`
+is also `null` unless **every** week (1-5) has a budget set — comparing a partial target (say, only
+one week budgeted) against the whole month's spend would read as "over/under budget" against money
+three other weeks never had a target for. It's computed on every read, never stored, so it can't
+drift from its parts.
+
+## `GET /budgets/:month`
+
+Prefill for a budgets-editing screen. Returns exactly the `budget` object described above, on its own:
+
+```json
+{
+  "data": {
+    "weeks": [
+      { "week": 1, "budgetAmount": "600.00", "spentAmount": "520.00", "remaining": "80.00" },
+      { "week": 2, "budgetAmount": null, "spentAmount": "0.00", "remaining": null },
+      { "week": 3, "budgetAmount": "600.00", "spentAmount": "805.00", "remaining": "-205.00" },
+      { "week": 4, "budgetAmount": null, "spentAmount": "0.00", "remaining": null },
+      { "week": 5, "budgetAmount": "600.00", "spentAmount": "515.00", "remaining": "85.00" }
+    ],
+    "protein": { "budgetAmount": "350.00", "spentAmount": "310.00", "remaining": "40.00" },
+    "month": { "budgetAmount": null, "spentAmount": "1840.00", "remaining": null }
+  }
+}
+```
+
+## `PUT /budgets/:month`
+
+Sets some or all of a month's weekly budgets plus its protein budget in one call — a partial update:
+an omitted `weeks`/`protein` leaves that budget untouched, and a `weeks` entry only upserts the weeks
+named in it (the other weeks in the month are left alone). A week's own `amount: null` deletes just
+that week's budget (back to unset), same convention as `protein: null` for the protein budget.
+Omitting `weeks`/`protein` leaves each untouched; at least one of the two is required. `weeks` holds
+1-5 entries, one per week number (1-5) — a duplicate week in the same request is a `400`.
+
+Every amount (`weeks[].amount`, `protein`) must be non-negative — a negative budget is rejected as a
+`400`, unlike `total`/`discount`/an adjustment line item, none of which have that restriction.
+
+Request:
+
+```json
+{
+  "weeks": [
+    { "week": 1, "amount": "600.00" },
+    { "week": 3, "amount": null }
+  ],
+  "protein": "350.00"
+}
+```
+
+`week: 3` above clears that week's budget; `week: 1` sets/updates it.
+
+Response `200`: the updated `budget` object, same shape as `GET /budgets/:month` — lets the client
+show the new `remaining` figures without a second round trip.
+
 ## `GET /orders`
 
 The month list behind the app's Orders screen. Query parameters: `month` (`YYYY-MM`, omitted =
@@ -377,6 +470,7 @@ Response `200`:
         "periodWeek": 2,
         "currency": "EGP",
         "total": "650.00",
+        "actualPaid": null,
         "itemCount": 12,
         "source": "receipt",
         "createdAt": "2026-07-14T19:02:11.412Z"
@@ -389,6 +483,9 @@ Response `200`:
 
 `nextCursor` is `null` on the last page. A `cursor` that isn't one of the caller's own order ids is
 a `400` — it is a keyset anchor, not an opaque token, so it has to resolve within their orders.
+
+`actualPaid` is `null` unless the user recorded a different amount actually paid (tip, rounding, a
+register discount) — see `POST /receipts/:id/confirm` above. Display `actualPaid ?? total`.
 
 ## `GET /orders/:id`
 
@@ -407,6 +504,7 @@ Response `200` — the order with its line items, in `position` order:
     "tax": "38.00",
     "discount": "0.00",
     "total": "650.00",
+    "actualPaid": null,
     "notes": null,
     "source": "receipt",
     "itemCount": 1,
@@ -602,6 +700,12 @@ field for rows the user added by hand.
 Moving an order to another month recomputes the summaries for **both** months and drops any cached
 `MonthComparison` referencing either one.
 
+`actualPaid` follows the same absent/null convention as `notes`: omit it to leave it untouched,
+`null` to clear it back to "same as `total`". Changing it (or `total`) shifts `GET
+/analytics/month/:month`'s `budget.weeks[].spentAmount`/`budget.month.spentAmount` for whichever
+week(s) the order falls in — those are computed live from `Order`, not a materialized summary, so
+there's nothing else to recompute or invalidate for it.
+
 Request:
 
 ```json
@@ -613,6 +717,7 @@ Request:
   "tax": "0.00",
   "discount": "0.00",
   "total": "45.00",
+  "actualPaid": "50.00",
   "items": [
     {
       "name": "Tomatoes",

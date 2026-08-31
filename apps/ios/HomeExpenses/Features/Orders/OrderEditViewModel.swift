@@ -12,6 +12,11 @@ final class OrderEditViewModel: ObservableObject {
     @Published var items: [EditableItem] = []
     @Published var tax: Decimal = 0
     @Published var discount: Decimal = 0
+    /// Whether an override is recorded at all — separate from `actualPaid`'s value so the form can
+    /// tell "no override" from "override of zero," and so turning the toggle off can send an
+    /// explicit clear (`ClearableMoney.cleared`) rather than silently leaving the old value in place.
+    @Published var hasActualPaid = false
+    @Published var actualPaid: Decimal = 0
     @Published var notes = ""
     @Published private(set) var categories: [CategoryDTO] = []
     @Published private(set) var isSaving = false
@@ -128,6 +133,8 @@ final class OrderEditViewModel: ObservableObject {
         currency = order.currency
         tax = order.tax.value
         discount = order.discount.value
+        hasActualPaid = order.actualPaid != nil
+        actualPaid = order.actualPaid?.value ?? 0
         notes = order.notes ?? ""
         items = order.items.map { item in
             EditableItem(
@@ -156,6 +163,9 @@ final class OrderEditViewModel: ObservableObject {
             tax: tax.wireString,
             discount: discount.wireString,
             total: grandTotal.wireString,
+            // Always sent as `.cleared` or `.value`, never omitted — the form loaded the order's
+            // full state, so there's nothing left "untouched" to preserve by omitting the key.
+            actualPaid: hasActualPaid ? .value(actualPaid.wireString) : .cleared,
             notes: notes,
             items: items.enumerated().map { index, item in
                 OrderItemInput(

@@ -35,6 +35,9 @@ final class ReviewViewModel: ObservableObject {
     @Published var items: [EditableItem]
     @Published var tax: Decimal
     @Published var discount: Decimal
+    /// Same "no override" vs. "override of zero" distinction as `OrderEditViewModel` — see there.
+    @Published var hasActualPaid = false
+    @Published var actualPaid: Decimal = 0
     @Published var notes: String = ""
     @Published private(set) var categories: [CategoryDTO] = []
     @Published private(set) var categoriesError: String?
@@ -257,6 +260,7 @@ final class ReviewViewModel: ObservableObject {
             tax: tax.wireString,
             discount: discount.wireString,
             total: grandTotal.wireString,
+            actualPaid: hasActualPaid ? actualPaid.wireString : nil,
             notes: notes.isEmpty ? nil : notes,
             items: requestItems
         )

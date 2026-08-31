@@ -64,7 +64,7 @@ model Receipt {
 // No blob storage — images are received as base64, used once for extraction, and never
 // persisted (PROJECT_SPEC.md §2 is superseded here). This row is bookkeeping only.
 model ReceiptImage {
-  id        String  @id @default(cuid())
+  id        String @id @default(cuid())
   receiptId String
   position  Int
   bytes     Int?
@@ -76,24 +76,28 @@ model ReceiptImage {
 }
 
 model Order {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  receiptId   String?  @unique
+  receiptId   String?   @unique
   merchant    String
   purchasedAt DateTime? // DEPRECATED — no longer read or written (extraction v3 dropped it from
   // the output contract; the app orders by createdAt now). Column kept per the db-migration skill's
   // expand/contract rule — drop it in a later, separate migration once this deploy is out.
   periodMonth DateTime // normalized YYYY-MM-01 — BR-4
-  periodWeek  Int      @default(1) // 1-5, week within periodMonth; validated by periodWeekSchema
+  periodWeek  Int       @default(1) // 1-5, week within periodMonth; validated by periodWeekSchema
   currency    String
-  subtotal    Decimal  @db.Decimal(12, 2)
-  tax         Decimal  @db.Decimal(12, 2) @default(0)
-  discount    Decimal  @db.Decimal(12, 2) @default(0)
-  total       Decimal  @db.Decimal(12, 2)
+  subtotal    Decimal   @db.Decimal(12, 2)
+  tax         Decimal   @default(0) @db.Decimal(12, 2)
+  discount    Decimal   @default(0) @db.Decimal(12, 2)
+  total       Decimal   @db.Decimal(12, 2)
+  actualPaid  Decimal?  @db.Decimal(12, 2) // what actually left the wallet (tip, rounding, register
+  // discount); nullable means "same as total". When present it is the order's displayed/effective
+  // total everywhere (order list/detail, budget "spent") — `total` stays the untouched receipt
+  // figure so a later edit can always see what was actually printed.
   notes       String?
-  source      String   @default("receipt") // receipt | manual
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  source      String    @default("receipt") // receipt | manual
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   items   OrderItem[]
   user    User        @relation(fields: [userId], references: [id])
@@ -109,7 +113,7 @@ model OrderItem {
   name           String
   brand          String? // manufacturer/brand, split from name, e.g. "Milkman" for "Full Cream Milk"
   normalizedName String? // lowercased/trimmed item name only (brand excluded) — merchant-item memory
-  quantity       Decimal  @db.Decimal(10, 3) @default(1)
+  quantity       Decimal  @default(1) @db.Decimal(10, 3)
   unit           String? // kg, L, pcs
   unitPrice      Decimal? @db.Decimal(12, 2)
   lineTotal      Decimal  @db.Decimal(12, 2)
@@ -161,6 +165,29 @@ model ProteinMonthlySummary {
   totalAmount Decimal  @db.Decimal(12, 2)
   itemCount   Int
   orderCount  Int
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, periodMonth])
+}
+
+model WeeklyBudget {
+  // user-set target per (userId, periodMonth, periodWeek); "spent" is computed live from Order
+  // (COALESCE(actualPaid, total)), never materialized here — this row is the target only.
+  userId      String
+  periodMonth DateTime
+  periodWeek  Int // 1-5, same range as Order.periodWeek / periodWeekSchema
+  amount      Decimal  @db.Decimal(12, 2)
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, periodMonth, periodWeek])
+}
+
+model ProteinBudget {
+  // user-set protein target per (userId, periodMonth) — month-level only, matching
+  // ProteinMonthlySummary's granularity (protein spend is never split by week).
+  userId      String
+  periodMonth DateTime
+  amount      Decimal  @db.Decimal(12, 2)
   updatedAt   DateTime @updatedAt
 
   @@id([userId, periodMonth])

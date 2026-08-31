@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { moneySchema, monthLabelSchema, periodWeekSchema } from "@/lib/api/schemas/common";
+import {
+  moneySchema,
+  monthLabelSchema,
+  nonNegativeMoneySchema,
+  periodWeekSchema,
+} from "@/lib/api/schemas/common";
 import { CATEGORY_SLUGS } from "@/lib/services/categoryTaxonomy";
 
 const MAX_ITEMS_PER_ORDER = 200;
@@ -71,7 +76,13 @@ export const OrderUpdateRequestSchema = z
     subtotal: moneySchema.optional(),
     tax: moneySchema.optional(),
     discount: moneySchema.optional(),
-    total: moneySchema.optional(),
+    // Non-negative: unlike discount/an adjustment line item, `total` feeds `budgets.ts`'s live
+    // `COALESCE(actualPaid, total)` spend query directly — a negative total would subtract from a
+    // week's spend instead of adding to it.
+    total: nonNegativeMoneySchema.optional(),
+    // What actually left the wallet (tip, rounding, register discount). `null` clears it back to
+    // "same as total"; absent leaves it untouched — same absent/null convention as `notes`.
+    actualPaid: nonNegativeMoneySchema.nullable().optional(),
     notes: z.string().max(2000).nullable().optional(),
     items: z
       .array(OrderItemInputSchema)

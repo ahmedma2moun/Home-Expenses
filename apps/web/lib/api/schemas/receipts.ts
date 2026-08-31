@@ -3,6 +3,7 @@ import {
   clientRefSchema,
   moneySchema,
   monthLabelSchema,
+  nonNegativeMoneySchema,
   periodWeekSchema,
 } from "@/lib/api/schemas/common";
 import { OrderItemInputSchema } from "@/lib/api/schemas/orders";
@@ -48,7 +49,13 @@ export const ConfirmReceiptRequestSchema = z.object({
   subtotal: moneySchema,
   tax: moneySchema.default("0.00"),
   discount: moneySchema.default("0.00"),
-  total: moneySchema,
+  // Non-negative: unlike discount/an adjustment line item, `total` feeds `budgets.ts`'s live
+  // `COALESCE(actualPaid, total)` spend query directly — a negative total would subtract from a
+  // week's spend instead of adding to it.
+  total: nonNegativeMoneySchema,
+  // What actually left the wallet (tip, rounding, register discount); omitted/null means "same as
+  // total". Optional at confirm time — most receipts don't need it.
+  actualPaid: nonNegativeMoneySchema.nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   items: z.array(OrderItemInputSchema).min(1).max(200),
 });

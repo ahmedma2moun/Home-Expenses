@@ -22,6 +22,9 @@ struct ConfirmReceiptRequest: Encodable, Sendable {
     let tax: String
     let discount: String
     let total: String
+    /// What actually left the wallet, when it differs from `total` (tip, rounding, register
+    /// discount) — omit when it's the same as `total`.
+    let actualPaid: String?
     let notes: String?
     let items: [ConfirmOrderItemRequest]
 }

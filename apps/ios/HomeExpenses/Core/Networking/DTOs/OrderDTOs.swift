@@ -11,10 +11,20 @@ struct OrderSummaryDTO: Decodable, Identifiable, Sendable {
     let periodMonth: String
     let periodWeek: Int
     let currency: String
+    /// The receipt-derived total, untouched — see `actualPaid`/`displayTotal`.
     let total: MoneyString
+    /// What actually left the wallet (tip, rounding, register discount); `nil` means "same as
+    /// `total`" — always display `displayTotal`, never `total` directly.
+    let actualPaid: MoneyString?
     let itemCount: Int
     let source: String
     let createdAt: String
+
+    /// What to show wherever this order's total appears — `actualPaid` when recorded, `total`
+    /// otherwise.
+    var displayTotal: Decimal {
+        actualPaid?.value ?? total.value
+    }
 
     /// The day the order was saved — there is no separate receipt date (extraction no longer
     /// reads one; see `docs/prompts/extraction.v3.md`).
@@ -77,11 +87,21 @@ struct OrderDetailDTO: Decodable, Sendable {
     let subtotal: MoneyString
     let tax: MoneyString
     let discount: MoneyString
+    /// The receipt-derived total, untouched — see `actualPaid`/`displayTotal`.
     let total: MoneyString
+    /// What actually left the wallet (tip, rounding, register discount); `nil` means "same as
+    /// `total`" — always display `displayTotal`, never `total` directly.
+    let actualPaid: MoneyString?
     let notes: String?
     let source: String
     let itemCount: Int
     let items: [OrderItemDTO]
+
+    /// What to show wherever this order's total appears — `actualPaid` when recorded, `total`
+    /// otherwise.
+    var displayTotal: Decimal {
+        actualPaid?.value ?? total.value
+    }
 }
 
 /// Body of `PATCH /api/v1/orders/:id`. Every field is optional and an omitted one is left
@@ -97,6 +117,10 @@ struct OrderUpdateRequest: Encodable, Sendable {
     var tax: String?
     var discount: String?
     var total: String?
+    /// `nil` omits the key (leave untouched server-side); `.cleared` sends `null` (back to "same
+    /// as total"); `.value` sends the amount. The edit screen always sends `.cleared` or `.value`
+    /// — it loads the full order first, so there's nothing to leave untouched. See `ClearableMoney`.
+    var actualPaid: ClearableMoney?
     var notes: String?
     var items: [OrderItemInput]?
 }

@@ -7,12 +7,24 @@ struct SummaryView: View {
     // Shared with the Quick Add widget's deep link (`AppRouter`, `HomeExpensesApp.onOpenURL`) — the
     // toolbar button and the widget both drive the same sheet through this one piece of state.
     @EnvironmentObject private var router: AppRouter
+    @State private var showingBudgets = false
 
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Home")
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showingBudgets = true
+                        } label: {
+                            Image(systemName: "target")
+                        }
+                        .accessibilityLabel("Budgets")
+                        // `BudgetsView` needs the account's real currency, not the "EGP" fallback —
+                        // there's nowhere else to read it from until the month summary has loaded.
+                        .disabled(viewModel.summary == nil)
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             router.showingCaptureFlow = true
@@ -23,6 +35,14 @@ struct SummaryView: View {
                 }
                 .sheet(isPresented: $router.showingCaptureFlow) {
                     ReceiptFlowView {
+                        Task { await viewModel.load() }
+                    }
+                }
+                .sheet(isPresented: $showingBudgets) {
+                    BudgetsView(
+                        month: viewModel.selectedMonth,
+                        currency: viewModel.summary?.currency ?? "EGP"
+                    ) {
                         Task { await viewModel.load() }
                     }
                 }
@@ -94,27 +114,64 @@ struct SummaryView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
+                if let budget = summary.budget,
+                    let monthBudget = budget.month.budgetAmount?.value,
+                    let monthRemaining = budget.month.remaining?.value
+                {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text("Budget remaining")
+                                .font(.footnote)
+                            Spacer()
+                            Text(monthRemaining.formatted(currencyCode: summary.currency))
+                                .font(.footnote)
+                                .monospacedDigit()
+                                .foregroundStyle(monthRemaining < 0 ? .red : .secondary)
+                        }
+                        // "Total spend" above is item-based (excludes tax/discount/`actualPaid`);
+                        // this line is the order-cash figure the remaining above is actually
+                        // measured against, so the two numbers aren't left to silently disagree.
+                        Text(
+                            "\(budget.month.spentAmount.value.formatted(currencyCode: summary.currency)) of \(monthBudget.formatted(currencyCode: summary.currency)) budget spent"
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
             }
 
             if !summary.weeks.isEmpty {
                 Section("By week") {
                     ForEach(summary.weeks) { week in
-                        weekRow(week, currency: summary.currency)
+                        weekRow(
+                            week,
+                            budget: budgetForWeek(week.week, in: summary),
+                            currency: summary.currency
+                        )
                     }
                 }
             }
 
             if summary.protein.itemCount > 0 {
                 Section {
-                    HStack {
-                        Label("Protein spend", systemImage: "fish.fill")
-                        Spacer()
-                        Text(summary.protein.totalAmount.value.formatted(currencyCode: summary.currency))
-                            .monospacedDigit()
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Label("Protein spend", systemImage: "fish.fill")
+                            Spacer()
+                            Text(summary.protein.totalAmount.value.formatted(currencyCode: summary.currency))
+                                .monospacedDigit()
+                        }
+                        Text("\(summary.protein.itemCount) items · included in the total, not split by week")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let remaining = summary.budget?.protein.remaining?.value {
+                            Text("\(remaining < 0 ? "Over protein budget by" : "Protein budget remaining") \(abs(remaining).formatted(currencyCode: summary.currency))")
+                                .font(.caption)
+                                .foregroundStyle(remaining < 0 ? .red : .secondary)
+                        }
                     }
-                    Text("\(summary.protein.itemCount) items · included in the total, not split by week")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
                 }
             }
 
@@ -159,14 +216,29 @@ struct SummaryView: View {
         .listStyle(.insetGrouped)
     }
 
-    private func weekRow(_ week: WeekTotalDTO, currency: String) -> some View {
-        HStack {
-            Text("Week \(week.week)")
-            Spacer()
-            Text(week.totalAmount.value.formatted(currencyCode: currency))
-                .monospacedDigit()
-                .foregroundStyle(week.itemCount > 0 ? .primary : .secondary)
+    private func weekRow(_ week: WeekTotalDTO, budget: WeekBudgetDTO?, currency: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("Week \(week.week)")
+                Spacer()
+                Text(week.totalAmount.value.formatted(currencyCode: currency))
+                    .monospacedDigit()
+                    .foregroundStyle(week.itemCount > 0 ? .primary : .secondary)
+            }
+            if let remaining = budget?.remaining?.value {
+                Text("\(remaining < 0 ? "Over by" : "Remaining") \(abs(remaining).formatted(currencyCode: currency))")
+                    .font(.caption)
+                    .foregroundStyle(remaining < 0 ? .red : .secondary)
+            }
         }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// `MonthSummaryDTO.budget.weeks` is always 5 entries, week 1-5 — same convention as
+    /// `MonthSummaryDTO.weeks` itself, just never guaranteed to be in the same array order as the
+    /// caller's `week`, so this matches on the week number rather than assuming index parity.
+    private func budgetForWeek(_ week: Int, in summary: MonthSummaryDTO) -> WeekBudgetDTO? {
+        summary.budget?.weeks.first { $0.week == week }
     }
 
     private func expansionBinding(for categoryId: String) -> Binding<Bool> {

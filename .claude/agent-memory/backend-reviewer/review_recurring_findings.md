@@ -56,11 +56,43 @@ Recurring findings in `apps/web` reviews. Check these before doing anything else
     hashes the aggregates, so bumping a prompt to vN+1 keeps serving vN narratives until the
     numbers change.
 
+14. **Two incompatible definitions of "spent" now coexist.** The materialized summaries
+    (`MonthlySummary`/`WeeklySummary`/`ProteinMonthlySummary`) are *item-based*: Σ`lineTotal`,
+    no tax, no discount, no `Order.actualPaid`, and `WeeklySummary` also *excludes* protein items.
+    Anything reading `Order` directly (e.g. budgets' `SUM(COALESCE(actualPaid, total))`) is
+    *order-cash*: includes tax/discount/`actualPaid` and protein. Never add or subtract across the
+    two bases, and never compare a target set in one basis against spend in the other. Any new
+    money figure must say which basis it's on.
+15. **`moneySchema` accepts negatives** — `MONEY_RE` is `/^-?\d+\.\d{2}$/`, and it has no digit cap
+    against `Decimal(12,2)`. Fine for `discount`, wrong for budgets/`actualPaid`. Every new money
+    field needs its own `.refine(nonNegative)` (and, for user-typed values, a max) or it accepts
+    `"-600.00"` and a 13-digit overflow that surfaces as a 500, not a 400.
+16. **A partial/optional-target aggregate compares apples to a full-month denominator.** Per-week
+    figures correctly go `null` when unbudgeted; the consolidated month figure keeps summing spend
+    over everything. Whenever a roll-up mixes "set" and "unset" targets, check what its `remaining`
+    reads when only *one* part is budgeted.
+
+17. **Only one side of a `COALESCE(a, b)` gets its validation tightened.** `budgets.ts` sums
+    `COALESCE(actualPaid, total)`, and `actualPaid` was moved to `nonNegativeMoneySchema` while
+    `total` stayed on the negative-accepting, uncapped `moneySchema` — so the fallback branch still
+    admits `"-500.00"`. Whenever a new aggregate starts consuming a column, re-check *every* column
+    in that expression, not just the new one. Extends item 15.
+18. **`docs/api.md` JSON examples go one fix behind the prose.** After a math fix the paragraph gets
+    rewritten and the sample response beside it keeps the old numbers — and the iOS DTOs are written
+    against the sample, not the paragraph. Recompute every example by hand against the new rule
+    (same failure mode as item 8's prompt docs).
+19. **A "reuse the row the caller already fetched" dedup silently serializes a parallel read.**
+    Passing an already-fetched row into a service as an optional param forces that service's whole
+    query batch out of the caller's `Promise.all` and behind it. Saving one PK lookup is not worth a
+    round trip — check whether the `await` moved outside the `Promise.all`.
+
 **Why:** these are systematic gaps in this codebase's shape, not one-off mistakes, and each has
-been found in at least one review. Items 1, 2, 5, 6, 9 and 10 are the ones most likely to be a real
-bug.
+been found in at least one review. Items 1, 2, 5, 6, 9, 10 and 14 are the ones most likely to be a
+real bug.
 
 **How to apply:** grep the diff for `merchant ===`, `groupBy(["merchant"])`, `unitPrice`,
-`findMany`, `createdAt`, `lib/api/schemas` imports, `inputTokens`, `deadlineMs`, and `maxDuration`
-before line-by-line reading. See [[review-auth-is-dev-stub]] for the one finding that should *not*
+`findMany`, `createdAt`, `lib/api/schemas` imports, `inputTokens`, `deadlineMs`, `maxDuration`,
+`moneySchema`, `spentAmount`/`totalAmount`, `COALESCE`, and `Promise.all` before line-by-line
+reading. On a *re-review*, recompute the `docs/api.md` examples by hand — the prose usually gets
+fixed and the JSON beside it usually does not. See [[review-auth-is-dev-stub]] for the one finding that should *not*
 be re-raised as blocking.

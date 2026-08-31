@@ -27,7 +27,11 @@ export interface OrderSummaryDto {
   periodMonth: string;
   periodWeek: number;
   currency: string;
+  /** The receipt-derived total, untouched — see `actualPaid` for what to actually display. */
   total: string;
+  /** What actually left the wallet (tip, rounding, register discount); `null` means "same as
+   *  `total`". Clients display `actualPaid ?? total` wherever an order's total appears. */
+  actualPaid: string | null;
   itemCount: number;
   source: string;
   createdAt: string;
@@ -77,6 +81,7 @@ export function toOrderSummary(order: OrderWithItemCount): OrderSummaryDto {
     periodWeek: order.periodWeek,
     currency: order.currency,
     total: order.total.toFixed(2),
+    actualPaid: order.actualPaid?.toFixed(2) ?? null,
     itemCount: order._count.items,
     source: order.source,
     createdAt: order.createdAt.toISOString(),
@@ -95,6 +100,7 @@ export function toOrderDto(order: OrderWithItems): OrderDto {
     tax: order.tax.toFixed(2),
     discount: order.discount.toFixed(2),
     total: order.total.toFixed(2),
+    actualPaid: order.actualPaid?.toFixed(2) ?? null,
     notes: order.notes,
     source: order.source,
     itemCount: order.items.length,

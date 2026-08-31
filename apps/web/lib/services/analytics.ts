@@ -2,6 +2,7 @@ import { prisma, Prisma } from "@/lib/db/prisma";
 import { formatMonthLabel, monthRange, toPeriodMonth } from "@/lib/services/period";
 import { CATEGORIES } from "@/lib/services/categoryTaxonomy";
 import { getUserCurrency } from "@/lib/services/users";
+import { getBudgetSummary, type BudgetSummary } from "@/lib/services/budgets";
 
 const CATEGORY_LOOKUP = new Map<string, (typeof CATEGORIES)[number]>(
   CATEGORIES.map((category) => [category.id, category]),
@@ -55,6 +56,10 @@ export interface MonthSummary {
    *  week. Already included in `totalAmount`/`categories` above; only absent from `weeks`.
    *  Zero-filled when no protein items exist this month (`ProteinMonthlySummary`). */
   protein: ProteinTotal;
+  /** Weekly + protein budget targets, actual spend, and remaining — see `budgets.ts`. Consolidated
+   *  monthly budget/spend live at `budget.month`, derived from the weeks alone — protein is a
+   *  separate, overlapping line, never folded in (see `consolidateMonthBudget`) — and never stored. */
+  budget: BudgetSummary;
 }
 
 const WEEKS_PER_MONTH = 5;
@@ -62,17 +67,27 @@ const WEEKS_PER_MONTH = 5;
 /** Reads the materialized MonthlySummary/WeeklySummary/ProteinMonthlySummary rows for one month —
  *  never scans OrderItem (§12). */
 export async function getMonthSummary(userId: string, periodMonth: Date): Promise<MonthSummary> {
-  const [rows, weekRows, proteinRow, orderCount, currency] = await Promise.all([
+  // Read once, reused for both `protein` below and `getBudgetSummary`'s own protein figure — this
+  // is the hottest read in the app, so the two don't each pay for the same PK lookup. Kept in the
+  // same `Promise.all` as everything else (chained via `.then`, not `await`ed separately) so
+  // `getBudgetSummary`'s own queries still run concurrently with the rest instead of only starting
+  // once every other read has finished.
+  const proteinRowPromise = prisma.proteinMonthlySummary.findUnique({
+    where: { userId_periodMonth: { userId, periodMonth } },
+  });
+
+  const [rows, weekRows, proteinRow, orderCount, currency, budget] = await Promise.all([
     prisma.monthlySummary.findMany({
       where: { userId, periodMonth },
       orderBy: { totalAmount: "desc" },
     }),
     prisma.weeklySummary.findMany({ where: { userId, periodMonth } }),
-    prisma.proteinMonthlySummary.findUnique({
-      where: { userId_periodMonth: { userId, periodMonth } },
-    }),
+    proteinRowPromise,
     prisma.order.count({ where: { userId, periodMonth } }),
     getUserCurrency(userId),
+    proteinRowPromise.then((row) =>
+      getBudgetSummary(userId, periodMonth, row?.totalAmount ?? new Prisma.Decimal(0)),
+    ),
   ]);
 
   const categories = rows.map((row) => ({
@@ -111,6 +126,7 @@ export async function getMonthSummary(userId: string, periodMonth: Date): Promis
       itemCount: proteinRow?.itemCount ?? 0,
       orderCount: proteinRow?.orderCount ?? 0,
     },
+    budget,
   };
 }
 

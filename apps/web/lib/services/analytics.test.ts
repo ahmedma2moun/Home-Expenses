@@ -5,6 +5,7 @@ const weeklySummaryFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const proteinFindUnique = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const orderCount = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const getUserCurrency = vi.fn<(...args: unknown[]) => Promise<string>>();
+const getBudgetSummary = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 
 /** A real-enough `Prisma.Decimal` stand-in: `analytics.ts` constructs `new Prisma.Decimal(0)`
  *  directly and chains `.add`/`.comparedTo`/`.toFixed` across it and every row's `totalAmount`, so
@@ -37,6 +38,23 @@ vi.mock("@/lib/services/users", () => ({
   getUserCurrency: (...args: unknown[]) => getUserCurrency(...args),
 }));
 
+// `budgets.ts` has its own dedicated tests (budgets.test.ts) — here it's just a collaborator
+// `getMonthSummary` embeds the result of, so a fixed stub is enough.
+vi.mock("@/lib/services/budgets", () => ({
+  getBudgetSummary: (...args: unknown[]) => getBudgetSummary(...args),
+}));
+
+const EMPTY_BUDGET = {
+  weeks: Array.from({ length: 5 }, (_, index) => ({
+    week: index + 1,
+    budgetAmount: null,
+    spentAmount: "0.00",
+    remaining: null,
+  })),
+  protein: { budgetAmount: null, spentAmount: "0.00", remaining: null },
+  month: { budgetAmount: null, spentAmount: "0.00", remaining: null },
+};
+
 afterEach(() => {
   vi.clearAllMocks();
 });
@@ -58,6 +76,7 @@ describe("getMonthSummary", () => {
     });
     orderCount.mockResolvedValue(3);
     getUserCurrency.mockResolvedValue("EGP");
+    getBudgetSummary.mockResolvedValue(EMPTY_BUDGET);
 
     const { getMonthSummary } = await import("./analytics");
     const summary = await getMonthSummary("user-1", new Date(Date.UTC(2026, 6, 1)));
@@ -83,6 +102,9 @@ describe("getMonthSummary", () => {
       { week: 5, totalAmount: "0.00", itemCount: 0, orderCount: 0 },
     ]);
     expect(summary.protein).toEqual({ totalAmount: "30.00", itemCount: 1, orderCount: 1 });
+    // `budget` is embedded verbatim from `getBudgetSummary` — its own math is covered by
+    // budgets.test.ts, this only checks the wiring.
+    expect(summary.budget).toBe(EMPTY_BUDGET);
   });
 
   it("returns a zero total for a month with no orders, not an error", async () => {
@@ -91,6 +113,7 @@ describe("getMonthSummary", () => {
     proteinFindUnique.mockResolvedValue(null);
     orderCount.mockResolvedValue(0);
     getUserCurrency.mockResolvedValue("EGP");
+    getBudgetSummary.mockResolvedValue(EMPTY_BUDGET);
 
     const { getMonthSummary } = await import("./analytics");
     const summary = await getMonthSummary("user-1", new Date(Date.UTC(2026, 6, 1)));

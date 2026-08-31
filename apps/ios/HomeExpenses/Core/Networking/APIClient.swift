@@ -35,6 +35,11 @@ actor APIClient {
         return try await send(path: path, method: "PATCH", body: data)
     }
 
+    func put<Body: Encodable, Response: Decodable>(_ path: String, body: Body) async throws -> Response {
+        let data = try JSONEncoder.api.encode(body)
+        return try await send(path: path, method: "PUT", body: data)
+    }
+
     func delete<Response: Decodable>(_ path: String) async throws -> Response {
         try await send(path: path, method: "DELETE", body: Optional<Data>.none)
     }

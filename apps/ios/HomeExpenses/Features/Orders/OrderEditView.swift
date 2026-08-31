@@ -69,6 +69,15 @@ struct OrderEditView: View {
                 amountRow("Discount", value: $viewModel.discount)
             }
 
+            Section {
+                Toggle("Actual amount paid", isOn: $viewModel.hasActualPaid)
+                if viewModel.hasActualPaid {
+                    amountRow("Actual paid", value: $viewModel.actualPaid)
+                }
+            } footer: {
+                Text("Only if it differs from the total above — a tip, rounding, or a register discount.")
+            }
+
             Section("Notes") {
                 TextField("Notes", text: $viewModel.notes, axis: .vertical)
                     .lineLimit(1...4)
