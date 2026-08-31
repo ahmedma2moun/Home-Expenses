@@ -225,7 +225,15 @@ struct SummaryView: View {
                     .monospacedDigit()
                     .foregroundStyle(week.itemCount > 0 ? .primary : .secondary)
             }
-            if let remaining = budget?.remaining?.value {
+            if let budget, let budgetAmount = budget.budgetAmount?.value, let remaining = budget.remaining?.value {
+                // The number above is item-based (no tax/discount/`actualPaid`) — "Remaining" is
+                // computed from the cash figure here instead, which is why the two can disagree
+                // (e.g. a register discount lowers cash spend but not the item total above).
+                Text(
+                    "\(budget.spentAmount.value.formatted(currencyCode: currency)) of \(budgetAmount.formatted(currencyCode: currency)) budget spent"
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
                 Text("\(remaining < 0 ? "Over by" : "Remaining") \(abs(remaining).formatted(currencyCode: currency))")
                     .font(.caption)
                     .foregroundStyle(remaining < 0 ? .red : .secondary)
