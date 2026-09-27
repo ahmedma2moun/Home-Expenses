@@ -137,7 +137,11 @@ keep only `position`, `mimeType`, and a computed `bytes` count for bookkeeping.
 
 `clientRef` is a client-generated idempotency key: calling this twice with the same `clientRef`
 returns the existing receipt rather than creating a second one (no duplicate parses on a retried
-request). Each image's `position` must be unique within the request — duplicates are a `400`.
+request). Each image's `position` must be unique within the request — duplicates are a `400`. This
+also means `clientRef` locks in whichever `extractionMode` the first request used: retrying the same
+`clientRef` with a different mode (e.g. falling back from `on_device` to `cloud` after an on-device
+failure) returns the original receipt unchanged, not a re-parse under the new mode — use a fresh
+`clientRef` for that retry instead.
 
 Request:
 
@@ -146,7 +150,8 @@ Request:
   "clientRef": "a1b2c3d4-...-uuid",
   "images": [
     { "base64": "<base64 JPEG bytes>", "position": 0, "mimeType": "image/jpeg" }
-  ]
+  ],
+  "extractionMode": "cloud"
 }
 ```
 
@@ -158,6 +163,31 @@ Response `202` (extraction runs asynchronously after this response is sent):
 
 `maxDuration` on this route is 120s — it covers the vision call plus one Zod-validation-failure
 correction retry, both happening inside the same invocation via Next's `after()`.
+
+### On-device extraction (`extractionMode: "on_device"`)
+
+The iOS app can run extraction itself, on the phone's Apple Foundation Model + Vision OCR (see
+`AI_PROVIDER.md` §10), instead of asking the backend to call Gemini/Anthropic. When it does, the
+request carries the already-parsed result instead of leaving `parsedPayload` for the server to fill
+in:
+
+```json
+{
+  "clientRef": "a1b2c3d4-...-uuid",
+  "images": [{ "base64": "<base64 JPEG bytes>", "position": 0, "mimeType": "image/jpeg" }],
+  "extractionMode": "on_device",
+  "clientParsedPayload": { "isReceipt": true, "merchant": "Carrefour", "...": "same shape as GET /receipts/:id's parsedPayload, below" },
+  "clientModel": "on-device:apple-foundation-model",
+  "clientLatencyMs": 1830
+}
+```
+
+The server validates `clientParsedPayload` against the exact same schema the cloud path's output
+goes through (unknown category slugs are still coerced to `other`) — it is never trusted blindly
+just because it came from the phone's own model. No vision call is scheduled; the response is `202`
+but `status` is already `PARSED` (or `FAILED`, mirroring the cloud path's `isReceipt: false` case),
+so the very first `GET /receipts/:id` poll resolves immediately. `inputTokens`/`outputTokens` are
+`null` for this path — there's no billable API call.
 
 ## `GET /receipts/:id`
 

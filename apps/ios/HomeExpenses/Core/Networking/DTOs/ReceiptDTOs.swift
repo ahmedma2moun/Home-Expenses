@@ -8,9 +8,23 @@ struct ReceiptImageInput: Encodable, Sendable {
     let mimeType: String
 }
 
+/// Matches `ExtractionModeSchema` in apps/web/lib/api/schemas/receipts.ts.
+enum ExtractionMode: String, Encodable, Sendable {
+    case cloud
+    case onDevice = "on_device"
+}
+
 struct ReceiptCreateRequest: Encodable, Sendable {
     let clientRef: String
     let images: [ReceiptImageInput]
+    var extractionMode: ExtractionMode = .cloud
+    /// Required by the server when `extractionMode == .onDevice` (AI_PROVIDER.md §10) — the result
+    /// of `OnDeviceReceiptExtractor`, validated server-side against the same schema the cloud path's
+    /// output goes through.
+    var clientParsedPayload: ParsedReceiptDTO?
+    /// e.g. "on-device:apple-foundation-model" — stored as `Receipt.model`.
+    var clientModel: String?
+    var clientLatencyMs: Int?
 }
 
 struct ReparseRequest: Encodable, Sendable {
@@ -32,7 +46,10 @@ struct ReceiptSummaryDTO: Decodable, Sendable {
     let status: ReceiptStatus
 }
 
-struct ParsedReceiptItemDTO: Decodable, Sendable {
+// Codable, not just Decodable: the on-device extraction path (AI_PROVIDER.md §10) builds one of
+// these client-side and encodes it as `clientParsedPayload` on `POST /receipts`, same shape the
+// cloud path decodes from `GET /receipts/:id`.
+struct ParsedReceiptItemDTO: Codable, Sendable {
     let name: String
     let brand: String?
     let quantity: Double?
@@ -43,7 +60,7 @@ struct ParsedReceiptItemDTO: Decodable, Sendable {
     let confidence: Double?
 }
 
-struct ParsedReceiptDTO: Decodable, Sendable {
+struct ParsedReceiptDTO: Codable, Sendable {
     let isReceipt: Bool
     let merchant: String?
     let currency: String?

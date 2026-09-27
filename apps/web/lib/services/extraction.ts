@@ -7,7 +7,9 @@ import { extractJsonObject } from "@/lib/services/aiJson";
 
 /** Models sometimes return a bare number for money fields despite the prompt — normalize before
  * the strict "12.34" check so a merely-unformatted (but otherwise correct) answer isn't bounced
- * into a wasted retry. */
+ * into a wasted retry. This leniency is deliberately confined to AI *output* parsing — the client
+ * request schema (`ClientParsedReceiptSchema` in `lib/api/schemas/receipts.ts`) is strict instead,
+ * since a client isn't asking to be corrected the way a model completion is. */
 const moneyFromModelSchema = z.preprocess((value) => {
   if (value === null || value === undefined) {
     return null;

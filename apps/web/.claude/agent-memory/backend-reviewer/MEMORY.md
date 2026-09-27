@@ -1,0 +1,1 @@
+- [Recurring review findings](recurring_review_findings.md) — check first: lenient model schemas on the wire, unbounded Int inputs leaking PII through Prisma errors, test `as` casts

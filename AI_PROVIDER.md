@@ -205,11 +205,13 @@ host); for local-first development it just works.
   verbatim — prompts are provider-agnostic. Add one eval requirement: **when you switch or upgrade a
   provider/model, re-run `npm run eval:extraction`** and record the accuracy + cost delta, exactly as
   for a prompt change. A provider swap is a model change and goes through the same gate.
-- **iOS app & API contract:** no change. The phone still holds no AI credential and only talks to the
-  backend.
+- **iOS app & API contract:** **superseded by §10 below.** This used to say "no change — the phone
+  holds no AI credential and only talks to the backend"; that's still true of the `ExtractionProvider`
+  interface in §4 (gemini/anthropic/ollama), but the iOS app can now run extraction itself, without a
+  credential, on Apple's on-device model. See §10.
 - **`docs/` folder:** `docs/prompts/` stays; `lib/claude/` → `lib/ai/` has happened, with
   `lib/ai/gemini` and `lib/ai/anthropic` provider subfolders. `lib/ai/ollama` doesn't exist yet — add
-  it if/when the Ollama provider gets built.
+  it if/when the Ollama provider gets built. `docs/prompts/extraction-on-device.v1.md` is new — see §10.
 
 ## 9. Recommendation
 
@@ -218,6 +220,41 @@ is what's actually implemented and configured today. Adding an **Ollama** provid
 interface for private data and offline work remains a good idea (§7) but is unbuilt. If extraction
 accuracy or PII handling later demands it, flip `EXTRACTION_PROVIDER` to `anthropic` or Gemini paid —
 no code change, no schema change, and the eval suite tells you whether the swap helped.
+
+## 10. On-device extraction (iOS, Apple Foundation Models) — a fourth path, outside the provider interface
+
+Unlike gemini/anthropic/ollama (§2, §4), this path does **not** implement `ExtractionProvider` and
+does **not** live in `lib/ai/` — there's no server-side vision call to make an interface for. It's a
+client-side alternative to calling the backend's extraction at all.
+
+**How it works:** `apps/ios/HomeExpenses/Core/AI/OnDeviceReceiptExtractor.swift` runs Vision
+(`VNRecognizeTextRequest`) OCR on the captured images, then feeds the recognized text to Apple's
+on-device Foundation Model (`LanguageModelSession`, iOS 26+, Apple Intelligence-capable hardware only)
+with a `@Generable` struct mirroring `ParsedReceiptSchema` field-for-field. **This is text-only** — the
+model never sees the image, only whatever Vision's OCR read off it — so expect lower accuracy than the
+cloud vision path on cluttered, handwritten, or low-contrast receipts. `Core/AI/OnDeviceAvailability.swift`
+checks `SystemLanguageModel.default.availability` so the iOS Capture screen can offer this as a choice
+and gray it out (not hide it) when the device/OS/Apple-Intelligence-setting doesn't support it.
+
+**Wire contract:** `POST /api/v1/receipts` gained `extractionMode: "cloud" | "on_device"` (default
+`"cloud"`) plus, for `on_device`, `clientParsedPayload` (validated server-side against the same
+`ParsedReceiptSchema` the cloud path's output goes through — never trusted blindly), `clientModel`,
+and `clientLatencyMs`. See `docs/api.md`'s `POST /receipts` section for the full shape. Because the
+output shape is identical either way, `Receipt.parsedPayload`, the Review/confirm screen, the Zod
+schema, and `MonthlySummary` never need to know which path produced a given receipt.
+
+**Prompt versioning (CLAUDE.md rule 9 applies here too):** the instructions given to the on-device
+`LanguageModelSession` are versioned in `docs/prompts/extraction-on-device.v1.md`, kept in sync with
+the literal string in `OnDeviceReceiptExtractor.swift`, same convention as `prompts.ts` documents for
+the cloud prompts. **Caveat:** `npm run eval:extraction` (the `prompt-eval-runner` fixture harness)
+takes receipt *images* and calls the configured cloud/`ExtractionProvider`; it does not exercise this
+OCR-text-based, on-device, Swift-only path. No eval run has been done for this prompt — building an
+on-device eval harness (labelled OCR-text fixtures, run on-device or in the simulator) is follow-up
+work, not something this change did.
+
+**Not built:** an explicit `Receipt.extractionMode` column — today the client vs. cloud distinction is
+inferred from the `model` string prefix (`"on-device:..."`). A dedicated enum column would need a
+`prisma migrate dev` (rule 7) and is a reasonable follow-up for analytics, not required for this to work.
 
 ## Docs
 

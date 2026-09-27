@@ -32,4 +32,22 @@ final class MoneyStringTests: XCTestCase {
         let reencodedString = try XCTUnwrap(String(data: reencoded, encoding: .utf8))
         XCTAssertTrue(reencodedString.contains(#""1234.50""#))
     }
+
+    // `Decimal(string:)` alone reads as much of a number as it can and silently ignores the rest —
+    // these all parsed as *something* (a wrong, truncated something) before `wireMoneyPattern` was
+    // added. `wireString(_:)` is the entry point the on-device extraction pipeline uses for
+    // client-produced money, so this is the regression the review that added the pattern was about.
+    func testWireStringRejectsGarbageInsteadOfSilentlyTruncating() {
+        for garbage in ["1,234.56", "45,50", "12abc", "1.2.3", "1e3", "", "-"] {
+            XCTAssertNil(MoneyString(wireString: garbage), "expected nil for \"\(garbage)\"")
+        }
+    }
+
+    func testWireStringAcceptsAWholeNumber() {
+        XCTAssertEqual(MoneyString(wireString: "45")?.value, Decimal(string: "45"))
+    }
+
+    func testWireStringAcceptsTwoDecimalPlaces() {
+        XCTAssertEqual(MoneyString(wireString: "45.50")?.value, Decimal(string: "45.50"))
+    }
 }

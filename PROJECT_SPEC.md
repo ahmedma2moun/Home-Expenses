@@ -589,7 +589,14 @@ duplicate orders from retries on poor connectivity.
 - **Accessibility:** Dynamic Type throughout, VoiceOver labels on category chips and chart summaries.
 - **Privacy:** `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`; state clearly in the
   onboarding that receipt images are sent to the configured AI provider (Gemini by default, not
-  Claude — see `AI_PROVIDER.md`) for processing.
+  Claude — see `AI_PROVIDER.md`) for processing, **unless** the user picks the on-device extraction
+  option on the Capture screen (`AI_PROVIDER.md` §10), in which case OCR and parsing both run locally
+  via Apple's Foundation Models framework and no image is sent to an AI provider at all. Be precise
+  in that copy, though: the images are **still uploaded to the backend** in both modes, for the
+  `ReceiptImage` bookkeeping row (position/mimeType/byte count, BR-1) — they are used once in memory
+  and never persisted server-side, but "the images never leave the phone" would overclaim. Only "not
+  sent to an AI provider" is accurate for on-device mode. That option is only offered (not hidden,
+  just disabled) on Apple Intelligence-capable hardware/OS/settings.
 
 ---
 

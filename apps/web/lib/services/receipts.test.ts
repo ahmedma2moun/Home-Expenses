@@ -34,6 +34,7 @@ function createInput(overrides: Partial<ReceiptCreateRequest> = {}): ReceiptCrea
   return {
     clientRef: "client-ref-1",
     images: [{ base64: "b64", position: 0, mimeType: "image/jpeg" }],
+    extractionMode: "cloud",
     ...overrides,
   };
 }
@@ -43,7 +44,7 @@ describe("createReceipt", () => {
     receiptCreate.mockResolvedValue({ id: "receipt-1", status: "PARSING" });
 
     const { createReceipt } = await import("./receipts");
-    const result = await createReceipt("user-1", createInput());
+    const result = await createReceipt("req-1", "user-1", createInput());
 
     expect(result).toEqual({ id: "receipt-1", status: "PARSING", created: true });
   });
@@ -53,6 +54,7 @@ describe("createReceipt", () => {
 
     await expect(
       createReceipt(
+        "req-1",
         "user-1",
         createInput({
           images: [
@@ -72,7 +74,7 @@ describe("createReceipt", () => {
     receiptFindUnique.mockResolvedValue({ id: "receipt-existing", status: "PARSING" });
 
     const { createReceipt } = await import("./receipts");
-    const result = await createReceipt("user-1", createInput());
+    const result = await createReceipt("req-1", "user-1", createInput());
 
     expect(result).toEqual({ id: "receipt-existing", status: "PARSING", created: false });
     expect(receiptFindUnique.mock.calls[0]?.[0]).toEqual({
@@ -85,7 +87,65 @@ describe("createReceipt", () => {
 
     const { createReceipt } = await import("./receipts");
 
-    await expect(createReceipt("user-1", createInput())).rejects.toThrow("some other db error");
+    await expect(createReceipt("req-1", "user-1", createInput())).rejects.toThrow(
+      "some other db error",
+    );
+  });
+
+  // On-device (AI_PROVIDER.md §10): no vision call to schedule — the receipt is created already
+  // PARSED from the client's own parse, with an unrecognized category coerced to "other" exactly
+  // like the cloud path.
+  it("creates an already-PARSED receipt from clientParsedPayload in on_device mode", async () => {
+    receiptCreate.mockResolvedValue({ id: "receipt-1", status: "PARSED" });
+
+    const { createReceipt } = await import("./receipts");
+    const result = await createReceipt(
+      "req-1",
+      "user-1",
+      createInput({
+        extractionMode: "on_device",
+        clientModel: "on-device:apple-foundation-model",
+        clientParsedPayload: {
+          isReceipt: true,
+          merchant: "Carrefour",
+          currency: "EGP",
+          items: [
+            {
+              name: "Milk",
+              quantity: 1,
+              unit: null,
+              unitPrice: null,
+              lineTotal: "10.00",
+              category: "not_a_real_slug",
+              confidence: 0.5,
+            },
+          ],
+          subtotal: "10.00",
+          tax: "0.00",
+          discount: "0.00",
+          total: "10.00",
+          warnings: [],
+          overallConfidence: 0.5,
+        },
+      }),
+    );
+
+    expect(result).toEqual({ id: "receipt-1", status: "PARSED", created: true });
+    expect(receiptCreate.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        status: "PARSED",
+        parsedPayload: { items: [{ category: "other" }] },
+      },
+    });
+  });
+
+  it("rejects on_device mode without a clientParsedPayload", async () => {
+    const { createReceipt } = await import("./receipts");
+
+    await expect(
+      createReceipt("req-1", "user-1", createInput({ extractionMode: "on_device" })),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR", httpStatus: 400 });
+    expect(receiptCreate).not.toHaveBeenCalled();
   });
 });
 

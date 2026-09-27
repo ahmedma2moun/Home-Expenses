@@ -12,7 +12,7 @@ export const maxDuration = 120;
 export async function POST(req: Request) {
   return withApi(req, async ({ body, userId, requestId, setStatus }) => {
     const input = ReceiptCreateRequestSchema.parse(body);
-    const { created, ...receipt } = await createReceipt(userId, input);
+    const { created, ...receipt } = await createReceipt(requestId, userId, input);
 
     if (created && receipt.status === "PARSING") {
       after(() => runExtraction(requestId, userId, receipt.id, input.images));

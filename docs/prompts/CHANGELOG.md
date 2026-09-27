@@ -11,6 +11,15 @@ See the `prompt-change` skill for the required procedure.
 | v2 | 2026-08-07 | Split each item's `name` into `brand` + `name` so brand and product are distinct fields instead of one free-text string | No baseline yet — fixtures still empty | Live in code |
 | v3 | 2026-08-07 | Drop `purchasedAt` from the output contract — the printed receipt date was rarely legible/reliable and the app now orders by `Order.createdAt` instead | No baseline yet — fixtures still empty | Live in code |
 
+## extraction-on-device
+
+Separate family from `extraction` above — text-only, runs inside the iOS app via Apple's Foundation
+Models framework instead of a cloud `ExtractionProvider`. See `AI_PROVIDER.md` §10.
+
+| Version | Date | Hypothesis | Metric deltas | Decision |
+|---|---|---|---|---|
+| v1 | 2026-09-27 | Offer a private/offline extraction path on Apple Intelligence-capable devices: Vision OCR + on-device Foundation Model, same output contract as the cloud path | No baseline — the `eval:extraction` harness feeds images to a cloud provider and cannot exercise this OCR-text/on-device path; unverified, not just "no fixtures yet" | Live in code |
+
 ## comparison
 
 | Version | Date | Hypothesis | Metric deltas | Decision |

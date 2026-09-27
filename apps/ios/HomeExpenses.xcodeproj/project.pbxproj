@@ -29,11 +29,13 @@
 		4C617817B336E5DBECE00B55 /* ComparisonDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56C12600F060FB14232A60BA /* ComparisonDTOs.swift */; };
 		4E21731499AD361A45271663 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D28C1D3BA2C00517C61F290A /* APIClient.swift */; };
 		5359ABDBC5493F78B8C86C5E /* AnalyticsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23A2B97EF6052A72885D5B9 /* AnalyticsDTOs.swift */; };
+		557D400BCE983BE925746373 /* OnDeviceReceiptExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE06EA83295EAF6E9A3E44B7 /* OnDeviceReceiptExtractor.swift */; };
 		5911E81CFDD2B7362FC9B4E3 /* OrderDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 863A3EFE9E2B7B8654206957 /* OrderDTOsTests.swift */; };
 		5AB8B4A826980B03B1F1380C /* AnalyticsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23A2B97EF6052A72885D5B9 /* AnalyticsDTOs.swift */; };
 		5D278B55FE452E2D803C7D82 /* FlexibleDateParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F68D4C4C893C55DD59B933 /* FlexibleDateParserTests.swift */; };
 		5EF61AE892D58EFF1DDF43F6 /* ReviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07103249136C2F1A1B018FBE /* ReviewViewModel.swift */; };
 		6639B54CE4C7B64C723D173F /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D0DA9630B92123B7A6CC84 /* APIError.swift */; };
+		682E2B1BD84EF22A17C3BD68 /* OnDeviceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACAA117199453C8C26284DB /* OnDeviceAvailability.swift */; };
 		726646729C27B27C30651176 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17985ED8CF7ED039F0F84079 /* ReviewView.swift */; };
 		74E4710CEF548D36F56A9965 /* ReceiptDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D60391D2F08DD3D4F0E9714 /* ReceiptDTOs.swift */; };
 		86141B49CF75888968F9D4E2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D28C1D3BA2C00517C61F290A /* APIClient.swift */; };
@@ -155,6 +157,7 @@
 		93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptFlowView.swift; sourceTree = "<group>"; };
 		99EDEC8AA7091E12C86C9EFD /* ClearableMoneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClearableMoneyTests.swift; sourceTree = "<group>"; };
 		A101E4D921A53E3CB7C1032D /* SpendWidgetProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendWidgetProvider.swift; sourceTree = "<group>"; };
+		AE06EA83295EAF6E9A3E44B7 /* OnDeviceReceiptExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceReceiptExtractor.swift; sourceTree = "<group>"; };
 		B1106737ABF3CCBEBED8B0E1 /* OrdersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersViewModel.swift; sourceTree = "<group>"; };
 		B25B7100A145A5805F5A831B /* PriceWatchListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceWatchListView.swift; sourceTree = "<group>"; };
 		B2C8E748A17765DD3F6F742C /* BudgetDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetDTOs.swift; sourceTree = "<group>"; };
@@ -167,6 +170,7 @@
 		D1906DABC2ED758D64C906B6 /* OrderEditViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderEditViewModel.swift; sourceTree = "<group>"; };
 		D23A2B97EF6052A72885D5B9 /* AnalyticsDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsDTOs.swift; sourceTree = "<group>"; };
 		D28C1D3BA2C00517C61F290A /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		DACAA117199453C8C26284DB /* OnDeviceAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceAvailability.swift; sourceTree = "<group>"; };
 		DDC8078F25B23A21A9240A62 /* BudgetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetsView.swift; sourceTree = "<group>"; };
 		E293B86DBEF468CA3D272235 /* OrderGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderGroupView.swift; sourceTree = "<group>"; };
 		E2D8E317C996398356C5BBA9 /* ImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreprocessor.swift; sourceTree = "<group>"; };
@@ -273,6 +277,7 @@
 			isa = PBXGroup;
 			children = (
 				E9417F0E84EBC7C60456389B /* AppRouter.swift */,
+				BA59E82C608DE30E4F49B6D0 /* AI */,
 				068B2CD3AE2619EB971AE36D /* DesignSystem */,
 				CB7545A92F82BB108ED816B4 /* Media */,
 				8015F9948F6718EBEABBC846 /* Networking */,
@@ -397,6 +402,15 @@
 				0BC16662B8090A9FBD8592B8 /* RootView.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		BA59E82C608DE30E4F49B6D0 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				DACAA117199453C8C26284DB /* OnDeviceAvailability.swift */,
+				AE06EA83295EAF6E9A3E44B7 /* OnDeviceReceiptExtractor.swift */,
+			);
+			path = AI;
 			sourceTree = "<group>";
 		};
 		CB7545A92F82BB108ED816B4 /* Media */ = {
@@ -633,6 +647,8 @@
 				AAD7E68CBA0D09ABA03A6E4F /* ItemHistoryViewModel.swift in Sources */,
 				C5A02E4009CB7335655AA410 /* Money+FormatStyle.swift in Sources */,
 				226EA839812CEA9FF95C9B15 /* MonthLabel.swift in Sources */,
+				682E2B1BD84EF22A17C3BD68 /* OnDeviceAvailability.swift in Sources */,
+				557D400BCE983BE925746373 /* OnDeviceReceiptExtractor.swift in Sources */,
 				1616CCEE332B84B1F8907760 /* OrderDTOs.swift in Sources */,
 				2B308E04F4830BC362A4F5AD /* OrderEditView.swift in Sources */,
 				2781D4E46D94441A9F39D1AA /* OrderEditViewModel.swift in Sources */,

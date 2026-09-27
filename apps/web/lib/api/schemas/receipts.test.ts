@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConfirmReceiptRequestSchema } from "./receipts";
+import { ConfirmReceiptRequestSchema, ReceiptCreateRequestSchema } from "./receipts";
 
 const confirmRequest = {
   merchant: "Carrefour",
@@ -108,4 +108,69 @@ describe("ConfirmReceiptRequestSchema.periodMonth", () => {
       }
     },
   );
+});
+
+const onDeviceRequest = {
+  clientRef: "client-ref-1",
+  images: [{ base64: "b64", position: 0, mimeType: "image/jpeg" as const }],
+  extractionMode: "on_device" as const,
+  clientParsedPayload: {
+    isReceipt: true,
+    merchant: "Carrefour",
+    currency: "EGP",
+    items: [
+      { name: "Milk", quantity: 1, unitPrice: "10.00", lineTotal: "10.00", category: "dairy_eggs" },
+    ],
+    subtotal: "10.00",
+    tax: "0.00",
+    discount: "0.00",
+    total: "10.00",
+    warnings: [],
+  },
+};
+
+describe("ReceiptCreateRequestSchema — on_device extraction", () => {
+  it("requires clientParsedPayload when extractionMode is on_device", () => {
+    const withoutPayload: Record<string, unknown> = { ...onDeviceRequest };
+    delete withoutPayload.clientParsedPayload;
+    const result = ReceiptCreateRequestSchema.safeParse(withoutPayload);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join("."))).toContain(
+        "clientParsedPayload",
+      );
+    }
+  });
+
+  it("accepts a well-formed clientParsedPayload", () => {
+    const result = ReceiptCreateRequestSchema.safeParse(onDeviceRequest);
+    expect(result.success).toBe(true);
+  });
+
+  // Regression: the client schema must never accept a bare JSON number, or round/reformat a
+  // malformed string, for a money field — unlike the cloud AI-output schema in
+  // lib/services/extraction.ts, which deliberately tolerates that from a model's completion.
+  it.each([
+    ["a JSON number", 10],
+    ["a value with more than two decimals", "10.005"],
+    ["a negative amount", "-10.00"],
+    ["a thousands separator", "1,000.00"],
+  ])("rejects a lineTotal that is %s instead of a strict money string", (_label, lineTotal) => {
+    const result = ReceiptCreateRequestSchema.safeParse({
+      ...onDeviceRequest,
+      clientParsedPayload: {
+        ...onDeviceRequest.clientParsedPayload,
+        items: [{ ...onDeviceRequest.clientParsedPayload.items[0], lineTotal }],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a clientLatencyMs above the 10-minute cap", () => {
+    const result = ReceiptCreateRequestSchema.safeParse({
+      ...onDeviceRequest,
+      clientLatencyMs: 600_001,
+    });
+    expect(result.success).toBe(false);
+  });
 });
