@@ -153,7 +153,6 @@ describe("ReceiptCreateRequestSchema — on_device extraction", () => {
   it.each([
     ["a JSON number", 10],
     ["a value with more than two decimals", "10.005"],
-    ["a negative amount", "-10.00"],
     ["a thousands separator", "1,000.00"],
   ])("rejects a lineTotal that is %s instead of a strict money string", (_label, lineTotal) => {
     const result = ReceiptCreateRequestSchema.safeParse({
@@ -164,6 +163,29 @@ describe("ReceiptCreateRequestSchema — on_device extraction", () => {
       },
     });
     expect(result.success).toBe(false);
+  });
+
+  // Regression: a real receipt can carry negative per-item discount lines, and the cloud path
+  // (`ParsedReceiptSchema`) already allows a signed lineTotal/unitPrice — the client schema must
+  // match that, not reject a well-formed negative amount the way `nonNegativeMoneySchema` would.
+  it("accepts a negative lineTotal for a discount line item", () => {
+    const result = ReceiptCreateRequestSchema.safeParse({
+      ...onDeviceRequest,
+      clientParsedPayload: {
+        ...onDeviceRequest.clientParsedPayload,
+        items: [
+          ...onDeviceRequest.clientParsedPayload.items,
+          {
+            name: "Discount",
+            quantity: 1,
+            unitPrice: "-10.00",
+            lineTotal: "-10.00",
+            category: "other",
+          },
+        ],
+      },
+    });
+    expect(result.success).toBe(true);
   });
 
   it("rejects a clientLatencyMs above the 10-minute cap", () => {

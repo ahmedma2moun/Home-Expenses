@@ -1,4 +1,3 @@
-// Local development — points at your machine (simulator). For a device, point this at a Preview
-// deployment instead (https://..., which needs no ATS exception — see Info.plist's
-// NSAppTransportSecurity, scoped to localhost only).
-API_BASE_URL = http:/$()/localhost:3000
+// Pointed at the deployed backend instead of localhost:3000 — no local `npm run dev` needed to run
+// the app. Switch back to `http:/$()/localhost:3000` for local backend development.
+API_BASE_URL = https:/$()/home-expenses-theta.vercel.app

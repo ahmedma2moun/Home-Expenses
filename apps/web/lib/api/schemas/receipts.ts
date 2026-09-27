@@ -14,15 +14,20 @@ const confidenceSchema = z.coerce.number().min(0).max(1).nullable().optional();
 // AI_PROVIDER.md §10). Deliberately a *separate* schema from the cloud AI-output parser
 // (`ParsedReceiptSchema` in lib/services/extraction.ts): that one exists to tolerate a model's
 // occasional bare-number-instead-of-string money field, which is leniency a client request has no
-// business needing. Money here is `nonNegativeMoneySchema` (no coercion from numbers, no rounding of
-// odd input) so a malformed amount is rejected with a 400 instead of silently reformatted and stored.
+// business needing. Money here is plain `moneySchema` (no coercion from numbers, no rounding of odd
+// input) so a malformed amount is rejected with a 400 instead of silently reformatted and stored —
+// but still *signed*, same as the cloud path: real receipts carry negative per-item discount lines
+// (confirmed against a real Egyptian grocery receipt with ~25 discounted items), so `unitPrice` and
+// `lineTotal` must allow a leading `-` just like `ParsedReceiptItemSchema` already does. Unlike
+// `ConfirmReceiptRequestSchema`'s `total`, nothing here is forced non-negative — that constraint
+// belongs at confirm time (where it protects `budgets.ts`'s live spend query), not at parse time.
 const ClientParsedReceiptItemSchema = z.object({
   name: z.string().min(1).max(200),
   brand: z.string().min(1).max(200).nullable().optional(),
   quantity: z.coerce.number().positive().nullable().default(1),
   unit: z.string().max(50).nullable().optional(),
-  unitPrice: nonNegativeMoneySchema.nullable(),
-  lineTotal: nonNegativeMoneySchema.nullable(),
+  unitPrice: moneySchema.nullable(),
+  lineTotal: moneySchema.nullable(),
   category: z.string().min(1).max(100),
   confidence: confidenceSchema,
 });
@@ -32,10 +37,10 @@ export const ClientParsedReceiptSchema = z.object({
   merchant: z.string().max(200).nullable().optional(),
   currency: z.string().min(1).max(8).nullable().optional(),
   items: z.array(ClientParsedReceiptItemSchema).max(200).default([]),
-  subtotal: nonNegativeMoneySchema.nullable(),
-  tax: nonNegativeMoneySchema.nullable(),
-  discount: nonNegativeMoneySchema.nullable(),
-  total: nonNegativeMoneySchema.nullable(),
+  subtotal: moneySchema.nullable(),
+  tax: moneySchema.nullable(),
+  discount: moneySchema.nullable(),
+  total: moneySchema.nullable(),
   warnings: z.array(z.string().max(300)).max(20).default([]),
   overallConfidence: confidenceSchema,
 });
