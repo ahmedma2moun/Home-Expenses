@@ -219,3 +219,13 @@ model ItemCategoryOverride {
 
   @@index([userId, merchant, itemName])
 }
+
+// Missing settings retain the original five periods and all existing assignments/budgets.
+model MonthPeriodSettings {
+  userId String
+  periodMonth DateTime
+  periodCount Int @default(5)
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, periodMonth])
+}

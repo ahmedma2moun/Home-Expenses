@@ -1,6 +1,10 @@
 import { prisma, isUniqueConstraintViolation, type ReceiptStatus } from "@/lib/db/prisma";
 import { AppError } from "@/lib/api/envelope";
-import { extractReceipt, type ExtractionOutcome, type ParsedReceipt } from "@/lib/services/extraction";
+import {
+  extractReceipt,
+  type ExtractionOutcome,
+  type ParsedReceipt,
+} from "@/lib/services/extraction";
 import { coerceCategorySlug } from "@/lib/services/categoryTaxonomy";
 import { DEFAULT_ON_DEVICE_MODEL } from "@/lib/api/schemas/receipts";
 import type {
@@ -232,6 +236,11 @@ export interface ReceiptDetail {
   parsedPayload: unknown;
   parseError: string | null;
   images: { position: number; mimeType: string }[];
+  /** How long the extraction itself took — the vision call for cloud, OCR+generation for on-device
+   *  (AI_PROVIDER.md §10). `null` until parsing finishes, or if a client never reported one. Shown
+   *  on the iOS Review screen ("Parsed in 2.3s") — not a cost-tracking field, so no auth/scoping
+   *  concerns beyond the ones this whole route already has. */
+  latencyMs: number | null;
 }
 
 export async function getReceipt(userId: string, receiptId: string): Promise<ReceiptDetail> {
@@ -249,6 +258,7 @@ export async function getReceipt(userId: string, receiptId: string): Promise<Rec
     parsedPayload: receipt.parsedPayload,
     parseError: receipt.parseError,
     images: receipt.images.map((image) => ({ position: image.position, mimeType: image.mimeType })),
+    latencyMs: receipt.latencyMs,
   };
 }
 

@@ -7,6 +7,29 @@ import Foundation
 final class OrderEditViewModel: ObservableObject {
     @Published var merchant = ""
     @Published var periodMonth = MonthLabel.startOfMonth(Date())
+    @Published private(set) var periodCount = 5
+    @Published private(set) var loadedPeriodMonth: Date?
+    @Published private(set) var periodsError: String?
+    var periodsLoaded: Bool { loadedPeriodMonth == periodMonth }
+
+    func loadPeriods() async {
+        let month = periodMonth
+        loadedPeriodMonth = nil
+        periodsError = nil
+        do {
+            let summary: BudgetSummaryDTO = try await APIClient.shared.get(
+                "/api/v1/budgets/\(MonthLabel.format(month))"
+            )
+            guard month == periodMonth, !Task.isCancelled else { return }
+            periodCount = summary.periodCount ?? summary.weeks.count
+            periodWeek = min(periodWeek, periodCount)
+            loadedPeriodMonth = month
+        } catch {
+            guard !error.isTaskCancellation, month == periodMonth else { return }
+            periodsError = "Couldn't load periods."
+        }
+    }
+
     @Published var periodWeek = 1
     @Published var currency = "EGP"
     @Published var items: [EditableItem] = []
@@ -97,6 +120,10 @@ final class OrderEditViewModel: ObservableObject {
     }
 
     func save() async {
+        guard periodsLoaded else {
+            errorMessage = "Wait for periods to load before saving."
+            return
+        }
         guard !items.isEmpty else {
             errorMessage = "An order needs at least one item. Delete the order instead."
             return

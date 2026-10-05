@@ -65,6 +65,19 @@ final class BudgetsViewModel: ObservableObject {
         }
     }
 
+    func setPeriodCount(_ count: Int) {
+        guard (1...31).contains(count) else { return }
+        if count < weeks.count {
+            weeks = Array(weeks.prefix(count))
+        } else if count > weeks.count {
+            for period in (weeks.count + 1)...count {
+                weeks.append(EditableWeekBudget(
+                    week: period, hasBudget: false, amount: 0, spentAmount: 0, remaining: nil
+                ))
+            }
+        }
+    }
+
     func setWeek(_ week: Int, hasBudget: Bool) {
         guard let index = weeks.firstIndex(where: { $0.week == week }) else { return }
         weeks[index].hasBudget = hasBudget
@@ -92,6 +105,7 @@ final class BudgetsViewModel: ObservableObject {
         defer { isSaving = false }
 
         let request = BudgetUpdateRequest(
+            periodCount: weeks.count,
             weeks: weeks.map { week in
                 WeekBudgetInput(
                     week: week.week,

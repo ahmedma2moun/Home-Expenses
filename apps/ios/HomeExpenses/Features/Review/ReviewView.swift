@@ -17,8 +17,15 @@ struct ReviewView: View {
     @FocusState private var focusedField: Field?
     var onConfirmed: () -> Void
 
-    init(receiptId: String, parsed: ParsedReceiptDTO, onConfirmed: @escaping () -> Void) {
-        _viewModel = StateObject(wrappedValue: ReviewViewModel(receiptId: receiptId, parsed: parsed))
+    init(
+        receiptId: String,
+        parsed: ParsedReceiptDTO,
+        latencyMs: Int? = nil,
+        onConfirmed: @escaping () -> Void
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: ReviewViewModel(receiptId: receiptId, parsed: parsed, latencyMs: latencyMs)
+        )
         self.onConfirmed = onConfirmed
     }
 
@@ -28,6 +35,7 @@ struct ReviewView: View {
                 notAReceipt
             } else {
                 reviewForm
+                    .task(id: viewModel.periodMonth) { await viewModel.loadPeriods() }
                     .task {
                         await viewModel.loadCategories()
                     }
@@ -78,19 +86,26 @@ struct ReviewView: View {
                     }
                     .buttonStyle(.plain)
                     HStack {
-                        Text("Week")
+                        Text("Period")
                         Spacer()
                         weekMenu
+                            .disabled(!viewModel.periodsLoaded)
+                        periodLoadingRow
                     }
                     TextField("Currency", text: $viewModel.currency)
                         .textInputAutocapitalization(.characters)
                 }
 
-                if !viewModel.warnings.isEmpty {
+                if !viewModel.warnings.isEmpty || viewModel.analysisTimeText != nil {
                     Section {
                         ForEach(viewModel.warnings, id: \.self) { warning in
                             Label(warning, systemImage: "exclamationmark.circle")
                                 .foregroundStyle(.orange)
+                                .font(.footnote)
+                        }
+                        if let analysisTimeText = viewModel.analysisTimeText {
+                            Label(analysisTimeText, systemImage: "clock")
+                                .foregroundStyle(.secondary)
                                 .font(.footnote)
                         }
                     } header: {
@@ -181,13 +196,22 @@ struct ReviewView: View {
         }
     }
 
+    @ViewBuilder
+    private var periodLoadingRow: some View {
+        if let error = viewModel.periodsError {
+            Button("\(error) Retry") { Task { await viewModel.loadPeriods() } }
+        } else if !viewModel.periodsLoaded {
+            ProgressView("Loading periods…")
+        }
+    }
+
     private var weekMenu: some View {
         Menu {
-            ForEach(1...5, id: \.self) { week in
-                Button("Week \(week)") { viewModel.periodWeek = week }
+            ForEach(1...viewModel.periodCount, id: \.self) { week in
+                Button("Period \(week)") { viewModel.periodWeek = week }
             }
         } label: {
-            Label("Week \(viewModel.periodWeek)", systemImage: "calendar")
+            Label("Period \(viewModel.periodWeek)", systemImage: "calendar")
                 .font(.subheadline)
         }
     }
@@ -330,7 +354,7 @@ struct ReviewView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isSaving)
+            .disabled(!viewModel.periodsLoaded || viewModel.isSaving)
         }
         .padding()
         .background(.bar)

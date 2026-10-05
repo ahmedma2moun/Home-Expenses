@@ -29,7 +29,7 @@ struct ProteinBudgetDTO: Decodable, Sendable {
 struct MonthBudgetDTO: Decodable, Sendable {
     /// Σ(week budgetAmount) + `protein.budgetAmount`. Safe to add protein in on top of the weeks
     /// because `WeekBudgetDTO.spentAmount` excludes protein cash — a protein purchase is never
-    /// counted twice between a week's target and protein's own. `nil` unless every week (1-5) has
+    /// counted twice between a week's target and protein's own. `nil` unless every configured period has
     /// a budget set — a partial target compared against the whole month's spend would be
     /// misleading; protein has no such gate, an unset protein budget just contributes 0. Derived
     /// server-side on every read, never stored.
@@ -41,7 +41,8 @@ struct MonthBudgetDTO: Decodable, Sendable {
 }
 
 struct BudgetSummaryDTO: Decodable, Sendable {
-    /// Always 5 entries (weeks 1-5) — same convention as `MonthSummaryDTO.weeks`.
+    /// Configured periods; legacy JSON keys preserve compatibility.
+    var periodCount: Int?
     let weeks: [WeekBudgetDTO]
     let protein: ProteinBudgetDTO
     let month: MonthBudgetDTO
@@ -51,6 +52,7 @@ struct BudgetSummaryDTO: Decodable, Sendable {
 /// budget untouched server-side. The Budgets screen always sends both, since it loads the full
 /// current state first — see `BudgetsViewModel`.
 struct BudgetUpdateRequest: Encodable, Sendable {
+    var periodCount: Int? = nil
     var weeks: [WeekBudgetInput]?
     /// `nil` omits the key (leave untouched); `.cleared` sends `null` (unset the protein budget);
     /// `.value` sets it. See `ClearableMoney`.

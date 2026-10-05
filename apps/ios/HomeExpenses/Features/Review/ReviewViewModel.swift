@@ -28,8 +28,31 @@ final class ReviewViewModel: ObservableObject {
 
     @Published var merchant: String
     @Published var periodMonth: Date
-    /// 1-5, the week within `periodMonth` this order falls in. Defaults to week 1 — matches the
+    /// The configured period within `periodMonth` this order falls in. Defaults to week 1 — matches the
     /// server default for an order that never states one (`periodWeekSchema.default(1)`).
+    @Published private(set) var periodCount = 5
+    @Published private(set) var loadedPeriodMonth: Date?
+    @Published private(set) var periodsError: String?
+    var periodsLoaded: Bool { loadedPeriodMonth == periodMonth }
+
+    func loadPeriods() async {
+        let month = periodMonth
+        loadedPeriodMonth = nil
+        periodsError = nil
+        do {
+            let summary: BudgetSummaryDTO = try await APIClient.shared.get(
+                "/api/v1/budgets/\(MonthLabel.format(month))"
+            )
+            guard month == periodMonth, !Task.isCancelled else { return }
+            periodCount = summary.periodCount ?? summary.weeks.count
+            periodWeek = min(periodWeek, periodCount)
+            loadedPeriodMonth = month
+        } catch {
+            guard !error.isTaskCancellation, month == periodMonth else { return }
+            periodsError = "Couldn't load periods."
+        }
+    }
+
     @Published var periodWeek: Int = 1
     @Published var currency: String
     @Published var items: [EditableItem]
@@ -55,6 +78,18 @@ final class ReviewViewModel: ObservableObject {
     /// backend already routes this to a `FAILED` receipt status before Review is ever reached
     /// (`runExtraction` in `receipts.ts`) — this is the defensive second check, not the primary one.
     let isReceipt: Bool
+
+    /// How long extraction took — the vision call for cloud, OCR+generation for on-device
+    /// (AI_PROVIDER.md §10). `nil` if the server never reported one (shouldn't happen once parsing
+    /// finishes, but this is a display nicety, not something worth a hard failure over).
+    private let latencyMs: Int?
+
+    /// e.g. "Parsed in 2.3s". `nil` hides the row entirely rather than showing a blank duration.
+    var analysisTimeText: String? {
+        guard let latencyMs else { return nil }
+        let seconds = Double(latencyMs) / 1000
+        return "Parsed in \(seconds.formatted(.number.precision(.fractionLength(1))))s"
+    }
 
     private let client = APIClient.shared
     private let receiptId: String
@@ -87,8 +122,9 @@ final class ReviewViewModel: ObservableObject {
 
     private let originalTotal: Decimal?
 
-    init(receiptId: String, parsed: ParsedReceiptDTO) {
+    init(receiptId: String, parsed: ParsedReceiptDTO, latencyMs: Int? = nil) {
         self.receiptId = receiptId
+        self.latencyMs = latencyMs
         merchant = parsed.merchant ?? ""
         currency = parsed.currency ?? "EGP"
         periodMonth = MonthLabel.startOfMonth(Date())
@@ -228,6 +264,10 @@ final class ReviewViewModel: ObservableObject {
     }
 
     func confirm() async {
+        guard periodsLoaded else {
+            errorMessage = "Wait for periods to load before saving."
+            return
+        }
         guard !items.isEmpty else {
             errorMessage = "Add at least one item."
             return

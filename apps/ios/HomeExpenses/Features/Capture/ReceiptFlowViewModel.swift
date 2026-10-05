@@ -12,13 +12,19 @@ import Foundation
 final class ReceiptFlowViewModel: ObservableObject {
     private var imagesByReceiptId: [String: [ReceiptImageInput]] = [:]
     private var parsedByReceiptId: [String: ParsedReceiptDTO] = [:]
+    /// How long extraction took, shown on the Review screen. A separate dictionary rather than
+    /// folding into `ParsedReceiptDTO` — that type mirrors the server's `parsedPayload` shape
+    /// exactly (it's also what `clientParsedPayload` sends back out), and `latencyMs` lives
+    /// alongside it on `Receipt`, not inside it.
+    private var latencyMsByReceiptId: [String: Int?] = [:]
 
     func store(_ created: CreatedReceipt) {
         imagesByReceiptId[created.receiptId] = created.images
     }
 
-    func store(_ parsed: ParsedReceiptDTO, for receiptId: String) {
+    func store(_ parsed: ParsedReceiptDTO, latencyMs: Int?, for receiptId: String) {
         parsedByReceiptId[receiptId] = parsed
+        latencyMsByReceiptId[receiptId] = latencyMs
     }
 
     /// Needed only to resend on retry — no blob storage means the server kept no copy
@@ -29,5 +35,9 @@ final class ReceiptFlowViewModel: ObservableObject {
 
     func parsed(for receiptId: String) -> ParsedReceiptDTO? {
         parsedByReceiptId[receiptId]
+    }
+
+    func latencyMs(for receiptId: String) -> Int? {
+        latencyMsByReceiptId[receiptId] ?? nil
     }
 }

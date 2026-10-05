@@ -66,15 +66,43 @@ describe("PUT /api/v1/budgets/:month", () => {
     expect(getBudgetSummary).toHaveBeenCalledWith(DEV_USER_ID, JULY);
   });
 
-  it("rejects a body with neither weeks nor protein", async () => {
+  it.each([1, 6, 31])("accepts a period-count-only update of %i", async (periodCount) => {
+    upsertBudgets.mockResolvedValue(undefined);
+    getBudgetSummary.mockResolvedValue(emptyBudget);
+
+    const res = await PUT(putRequest({ periodCount }), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(upsertBudgets).toHaveBeenCalledWith(DEV_USER_ID, JULY, { periodCount });
+  });
+
+  it("passes an expanded period count and its budgets to the service together", async () => {
+    upsertBudgets.mockResolvedValue(undefined);
+    getBudgetSummary.mockResolvedValue(emptyBudget);
+    const body = { periodCount: 6, weeks: [{ week: 6, amount: "100.00" }] };
+
+    const res = await PUT(putRequest(body), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(upsertBudgets).toHaveBeenCalledWith(DEV_USER_ID, JULY, body);
+  });
+
+  it.each([0, 32, 1.5, "6", null])("rejects an invalid period count %s", async (periodCount) => {
+    const res = await PUT(putRequest({ periodCount }), routeParams);
+
+    expect(res.status).toBe(400);
+    expect(upsertBudgets).not.toHaveBeenCalled();
+  });
+
+  it("rejects a body with neither periods, protein nor period count", async () => {
     const res = await PUT(putRequest({}), routeParams);
 
     expect(res.status).toBe(400);
     expect(upsertBudgets).not.toHaveBeenCalled();
   });
 
-  it("rejects a week number outside 1-5", async () => {
-    const res = await PUT(putRequest({ weeks: [{ week: 6, amount: "100.00" }] }), routeParams);
+  it("rejects a period number outside 1-31", async () => {
+    const res = await PUT(putRequest({ weeks: [{ week: 32, amount: "100.00" }] }), routeParams);
 
     expect(res.status).toBe(400);
     expect(upsertBudgets).not.toHaveBeenCalled();

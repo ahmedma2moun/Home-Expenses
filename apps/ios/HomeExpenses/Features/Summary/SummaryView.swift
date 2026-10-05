@@ -128,7 +128,7 @@ struct SummaryView: View {
             }
 
             if !summary.weeks.isEmpty {
-                Section("By week") {
+                Section("By period") {
                     ForEach(summary.weeks) { week in
                         weekRow(
                             week,
@@ -148,7 +148,7 @@ struct SummaryView: View {
                             Text(summary.protein.totalAmount.value.formatted(currencyCode: summary.currency))
                                 .monospacedDigit()
                         }
-                        Text("\(summary.protein.itemCount) items · included in the total, not split by week")
+                        Text("\(summary.protein.itemCount) items · included in the total, not split by period")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let remaining = summary.budget?.protein.remaining?.value {
@@ -209,7 +209,7 @@ struct SummaryView: View {
         let displayAmount = budget?.spentAmount.value ?? week.totalAmount.value
         return VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("Week \(week.week)")
+                Text("Period \(week.week)")
                 Spacer()
                 Text(displayAmount.formatted(currencyCode: currency))
                     .monospacedDigit()
@@ -224,7 +224,7 @@ struct SummaryView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// `MonthSummaryDTO.budget.weeks` is always 5 entries, week 1-5 — same convention as
+    /// `MonthSummaryDTO.budget.weeks` is one entry per configured period — same convention as
     /// `MonthSummaryDTO.weeks` itself, just never guaranteed to be in the same array order as the
     /// caller's `week`, so this matches on the week number rather than assuming index parity.
     private func budgetForWeek(_ week: Int, in summary: MonthSummaryDTO) -> WeekBudgetDTO? {

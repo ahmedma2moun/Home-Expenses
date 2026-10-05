@@ -20,5 +20,5 @@ export const monthLabelSchema = z.string().regex(MONTH_RE, 'Month must be format
 
 export const clientRefSchema = z.string().min(1).max(128);
 
-/** Week within a periodMonth: 1-5, "week1"-"week5" on the client. */
-export const periodWeekSchema = z.coerce.number().int().min(1).max(5);
+/** Period within a month; legacy wire name retained for older clients. */
+export const periodWeekSchema = z.coerce.number().int().min(1).max(31);

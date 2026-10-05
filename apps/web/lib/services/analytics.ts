@@ -47,7 +47,7 @@ export interface MonthSummary {
   itemCount: number;
   /** Includes protein items normally — see `totalAmount`. */
   categories: MonthCategoryTotal[];
-  /** Always 5 entries (weeks 1-5), zero-filled for any week with no (non-protein) spending —
+  /** One entry per configured period (default five), zero-filled for any week with no (non-protein) spending —
    *  total-only, no per-category split (see `WeeklySummary`). **Excludes** protein items — they
    *  count toward `totalAmount`/`categories` but are never split across weeks. */
   weeks: WeekTotal[];
@@ -62,8 +62,6 @@ export interface MonthSummary {
    *  stored. */
   budget: BudgetSummary;
 }
-
-const WEEKS_PER_MONTH = 5;
 
 /** Reads the materialized MonthlySummary/WeeklySummary/ProteinMonthlySummary rows for one month —
  *  never scans OrderItem (§12). */
@@ -103,7 +101,7 @@ export async function getMonthSummary(userId: string, periodMonth: Date): Promis
   const itemCount = categories.reduce((sum, category) => sum + category.itemCount, 0);
 
   const weeksByNumber = new Map(weekRows.map((row) => [row.periodWeek, row]));
-  const weeks: WeekTotal[] = Array.from({ length: WEEKS_PER_MONTH }, (_, index) => {
+  const weeks: WeekTotal[] = Array.from({ length: budget.periodCount }, (_, index) => {
     const week = index + 1;
     const row = weeksByNumber.get(week);
     return {

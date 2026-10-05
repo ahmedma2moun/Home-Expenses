@@ -35,12 +35,12 @@ struct ReceiptFlowView: View {
         case .parsing(let receiptId):
             ParsingView(receiptId: receiptId, images: flow.images(for: receiptId)) { detail in
                 guard let parsed = detail.parsedPayload else { return }
-                flow.store(parsed, for: receiptId)
+                flow.store(parsed, latencyMs: detail.latencyMs, for: receiptId)
                 path.append(.review(receiptId))
             }
         case .review(let receiptId):
             if let parsed = flow.parsed(for: receiptId) {
-                ReviewView(receiptId: receiptId, parsed: parsed) {
+                ReviewView(receiptId: receiptId, parsed: parsed, latencyMs: flow.latencyMs(for: receiptId)) {
                     onSaved()
                     dismiss()
                 }

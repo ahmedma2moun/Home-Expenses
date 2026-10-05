@@ -1,3 +1,8 @@
+vi.mock("@/lib/services/monthPeriods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./monthPeriods")>()),
+  lockPeriodWrites: vi.fn().mockResolvedValue(undefined),
+  lockMonthPeriods: vi.fn().mockResolvedValue(5),
+}));
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/envelope";
 import { OrderUpdateRequestSchema } from "@/lib/api/schemas/orders";

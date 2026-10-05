@@ -28,7 +28,7 @@ web clients talk to.
 | `POST` | `/receipts` | required | **live** | `{ clientRef, images: [{ base64, position, mimeType }] }` → creates receipt, starts parse. See below |
 | `GET` | `/receipts/:id` | required | **live** | Poll status + `parsedPayload` when `PARSED`. See below |
 | `POST` | `/receipts/:id/reparse` | required | **live** | Retry a `FAILED` parse — client must resend the images (see below) |
-| `POST` | `/receipts/:id/confirm` | required | **live** | Body = final user-edited order + items + `periodMonth`/`periodWeek` → creates `Order`. `merchant` is required but may be an empty string — it is trimmed, and a blank one is stored as `"Unknown merchant"`. `periodMonth` may be any month, past or future (BR-4); `periodWeek` (1-5) defaults to 1 |
+| `POST` | `/receipts/:id/confirm` | required | **live** | Body = final user-edited order + items + `periodMonth`/`periodWeek` → creates `Order`. `merchant` is required but may be an empty string — it is trimmed, and a blank one is stored as `"Unknown merchant"`. `periodMonth` may be any month, past or future (BR-4); `periodWeek` (1–31, bounded by the configured month) defaults to 1 |
 | `DELETE` | `/receipts/:id` | required | **live** | Discard an unconfirmed receipt (soft delete — sets `status = DISCARDED`; there's no blob to clean up) |
 | `GET` | `/orders?month=YYYY-MM&cursor=&limit=` | required | **live** | Paginated orders for a month; `month` omitted lists every month |
 | `POST` | `/orders` | required | **stub (501)** | Manual order entry (no receipt) — not implemented |
@@ -235,10 +235,15 @@ Response `200`:
       "overallConfidence": 0.88
     },
     "parseError": null,
-    "images": [{ "position": 0, "mimeType": "image/jpeg" }]
+    "images": [{ "position": 0, "mimeType": "image/jpeg" }],
+    "latencyMs": 4210
   }
 }
 ```
+
+`latencyMs` is how long extraction itself took — the vision call for `cloud`, OCR+generation for
+`on_device` (`clientLatencyMs` from the request, AI_PROVIDER.md §10) — not a network round-trip
+measurement. `null` while `status` is still `PARSING`, or if a client never reported one.
 
 `status` is one of `UPLOADED | PARSING | PARSED | FAILED | CONFIRMED | DISCARDED` (see
 `PROJECT_SPEC.md` §5). When `status` is `FAILED`, `parseError` holds a user-facing message and
@@ -303,7 +308,7 @@ Request:
 legitimately have none. It is display-only and does not affect price-history matching (see
 `GET /items/price-history` below), which stays keyed on `name` alone.
 
-`periodWeek` (1-5, week within `periodMonth`) defaults to `1` when omitted — an order with no week
+`periodWeek` (1–31, within the configured periods for `periodMonth`) defaults to `1` when omitted — an order with no week
 opinion just reads as week 1, same as an order created before this field existed. `isProtein`
 defaults to `false` on every item. A protein-flagged item counts normally toward
 `GET /analytics/month/:month`'s `totalAmount`/`categories` (same as any other item) **and** toward
@@ -370,6 +375,7 @@ Response `200`:
     ],
     "protein": { "totalAmount": "310.00", "itemCount": 9, "orderCount": 5 },
     "budget": {
+      "periodCount": 5,
       "weeks": [
         { "week": 1, "budgetAmount": "600.00", "spentAmount": "520.00", "remaining": "80.00" },
         { "week": 2, "budgetAmount": null, "spentAmount": "0.00", "remaining": null },
@@ -397,7 +403,7 @@ the one exception: it **excludes** protein items, so `sum(weeks[].totalAmount) +
 ≈ totalAmount` (protein spend isn't dropped, it's just never split across weeks — see BR-2's protein
 ask). `protein` is a separate lens on spend already counted above, not a subtraction from it.
 
-`weeks` always has exactly 5 entries (week 1-5), zero-filled for any week with no (non-protein)
+`weeks` has `budget.periodCount` entries (default 5), zero-filled for each configured period with no (non-protein)
 spending — the month total split by `Order.periodWeek`, total-only (no per-category breakdown per
 week), excluding protein items. `protein` is a single month-level total of every
 `OrderItem.isProtein = true` line, zero-filled when none exist — it is unaffected by category or
@@ -426,7 +432,7 @@ that case, since there's nothing to compare spend against.
 `Σ(weeks[].spentAmount) + protein.spentAmount` — adding protein in on both sides is safe precisely
 *because* `weeks[].spentAmount` excludes it: a protein purchase is counted exactly once, via
 `protein.spentAmount`, never via whichever week it fell in. `month.budgetAmount` is still `null`
-unless **every** week (1-5) has a budget set — comparing a partial target (say, only one week
+unless **every** configured period has a budget set — comparing a partial target (say, only one week
 budgeted) against the whole month's spend would read as "over/under budget" against money three
 other weeks never had a target for. Protein itself has no such gate: an unset protein budget just
 contributes `0` to `month.budgetAmount`, which is correct — protein spend with no target for it
@@ -440,6 +446,7 @@ Prefill for a budgets-editing screen. Returns exactly the `budget` object descri
 ```json
 {
   "data": {
+    "periodCount": 5,
     "weeks": [
       { "week": 1, "budgetAmount": "600.00", "spentAmount": "520.00", "remaining": "80.00" },
       { "week": 2, "budgetAmount": null, "spentAmount": "0.00", "remaining": null },
@@ -459,8 +466,11 @@ Sets some or all of a month's weekly budgets plus its protein budget in one call
 an omitted `weeks`/`protein` leaves that budget untouched, and a `weeks` entry only upserts the weeks
 named in it (the other weeks in the month are left alone). A week's own `amount: null` deletes just
 that week's budget (back to unset), same convention as `protein: null` for the protein budget.
-Omitting `weeks`/`protein` leaves each untouched; at least one of the two is required. `weeks` holds
-1-5 entries, one per week number (1-5) — a duplicate week in the same request is a `400`.
+Omitting `weeks`/`protein` leaves each untouched. At least one of `weeks`, `protein`, or
+`periodCount` is required. `periodCount` optionally sets this month’s count (integer 1–31).
+`weeks` holds 1–31 entries, one per configured period number — a duplicate or out-of-range
+period is a `400`. Reducing the count moves purchases from removed periods into the last
+remaining period and removes their budgets in the same transaction.
 
 Every amount (`weeks[].amount`, `protein`) must be non-negative — a negative budget is rejected as a
 `400`, unlike `total`/`discount`/an adjustment line item, none of which have that restriction.
@@ -723,7 +733,7 @@ checked (BR-2). Each item needs a distinct `position`. A `categoryId` that is un
 comes back as a field-level `400` (`details.issues[].path` = `items.<n>.categoryId`), not a 500.
 `isProtein` defaults to `false` per item when omitted.
 
-`periodWeek` (1-5) can be changed independently of `periodMonth` — moving only the week still
+`periodWeek` (1–31, bounded by the configured month) can be changed independently of `periodMonth` — moving only the week still
 recomputes that month's `WeeklySummary` rows (a full-month recompute covers every week in it), but
 doesn't trigger the two-month recompute that a `periodMonth` change does.
 
@@ -959,3 +969,26 @@ query by `userId` and returns `NOT_FOUND` rather than a 403, so existence is nev
 
 `POST /echo` also uses a bare `502` (not one of the codes above, and not in `docs/api.md`'s error
 envelope convention) when the configured AI provider itself returns an error — see that section.
+
+### Configurable monthly periods
+
+The app now calls the former weeks **periods**. Existing months default to five periods;
+existing assignments, spending, and budgets are reused without a backfill. For compatibility,
+the v1 JSON keys `weeks`, `week`, and `periodWeek` retain their names but refer to periods.
+
+`GET /budgets/:month`, `PUT /budgets/:month`, and the analytics `budget` object now include
+`periodCount` (1–31). Their `weeks` arrays contain that many entries; monthly analytics also
+returns the configured number of period totals. `PUT /budgets/:month` accepts an optional
+`periodCount`, alongside the existing per-period budget entries and protein budget, for example:
+
+```json
+{ "periodCount": 3, "weeks": [{ "week": 1, "amount": "2000.00" }, { "week": 2, "amount": "1500.00" }, { "week": 3, "amount": "2500.00" }] }
+```
+
+Increasing the count adds periods with unset budgets. Decreasing it moves orders from removed
+periods into the last remaining period, deletes removed-period budgets, and recomputes summaries
+in the same transaction. Existing remaining-period budgets are preserved unless supplied in the
+request. Protein budgeting is unchanged. Order create/edit and budget writes reject period numbers
+above that month's configured count with `VALIDATION_ERROR`. Omitting the count leaves it unchanged.
+Older clients keep their wire compatibility but cannot configure counts and may receive validation
+errors when submitting periods removed by a newer client; use the updated app for period editing.

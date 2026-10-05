@@ -1,7 +1,12 @@
 import { prisma, Prisma } from "@/lib/db/prisma";
 import type { BudgetUpdateRequest } from "@/lib/api/schemas/budgets";
 
-const WEEKS_PER_MONTH = 5;
+import {
+  getPeriodCount,
+  lockMonthPeriods,
+  assertPeriodInMonth,
+  resizeMonthPeriods,
+} from "@/lib/services/monthPeriods";
 const ZERO = new Prisma.Decimal(0);
 /** A 5-week upsert/delete plus a protein upsert/delete outruns Prisma's 5s interactive default. */
 const WRITE_TRANSACTION_OPTIONS = { timeout: 15_000, maxWait: 5_000 };
@@ -25,7 +30,7 @@ export interface ProteinBudgetDto {
 
 export interface MonthBudgetDto {
   /** Σ(week budgetAmount) + protein budgetAmount, but the week sum only counts **once every week
-   *  (1-5) has one set** — see the note on `consolidateMonthBudget`. `null` when that condition
+   *  in the configured count has one set** — see the note on `consolidateMonthBudget`. `null` when that condition
    *  isn't met, including when nothing at all is budgeted. */
   budgetAmount: string | null;
   /** Σ(weeks[].spentAmount) + protein.spentAmount — actual cash out for the whole month. Adding
@@ -39,6 +44,7 @@ export interface MonthBudgetDto {
 }
 
 export interface BudgetSummary {
+  periodCount: number;
   weeks: WeekBudgetDto[];
   protein: ProteinBudgetDto;
   month: MonthBudgetDto;
@@ -66,7 +72,7 @@ interface WeekActualRow {
  * here equal to its tax/discount/tip — the same limitation `ProteinBudgetDto.spentAmount`'s own doc
  * comment already calls out for the reverse direction.
  *
- * Not filtered to `periodWeek` 1-5: the column carries no DB check constraint, so an out-of-range
+ * Not filtered to the configured period count: the column carries no DB check constraint, so an out-of-range
  * row (there shouldn't be one — `periodWeekSchema` guards every write path) still counts toward the
  * month total rather than silently vanishing from it.
  */
@@ -115,6 +121,7 @@ export async function getBudgetSummary(
   periodMonth: Date,
   proteinSpentAmount?: Prisma.Decimal,
 ): Promise<BudgetSummary> {
+  const periodCount = await getPeriodCount({ userId, periodMonth });
   const [weekBudgetRows, proteinBudgetRow, proteinSpentRow, weeklyActualSpend] = await Promise.all([
     prisma.weeklyBudget.findMany({ where: { userId, periodMonth } }),
     prisma.proteinBudget.findUnique({ where: { userId_periodMonth: { userId, periodMonth } } }),
@@ -126,16 +133,13 @@ export async function getBudgetSummary(
     getWeeklyActualSpend(userId, periodMonth),
   ]);
 
-  // Filtered to 1-5 (unlike `getWeeklyActualSpend`'s deliberately-unfiltered spend map — see its
-  // own doc comment) so `consolidateMonthBudget`'s "every week 1-5 has a budget" guard and its sum
-  // can never disagree about which rows count. A `WeeklyBudget` row outside 1-5 shouldn't exist —
-  // `periodWeekSchema` guards every write path — but this keeps the two in lockstep regardless.
+  // Only configured periods contribute targets; all spending still counts toward the month.
   const budgetByWeek = new Map(
     weekBudgetRows
-      .filter((row) => row.periodWeek >= 1 && row.periodWeek <= WEEKS_PER_MONTH)
+      .filter((row) => row.periodWeek >= 1 && row.periodWeek <= periodCount)
       .map((row) => [row.periodWeek, row.amount]),
   );
-  const weeks: WeekBudgetDto[] = Array.from({ length: WEEKS_PER_MONTH }, (_, index) => {
+  const weeks: WeekBudgetDto[] = Array.from({ length: periodCount }, (_, index) => {
     const week = index + 1;
     const budgetAmount = budgetByWeek.get(week) ?? null;
     const spentAmount = weeklyActualSpend.get(week) ?? ZERO;
@@ -165,7 +169,7 @@ export async function getBudgetSummary(
     remaining: remainingOf(monthBudgetAmount, monthSpentAmount),
   };
 
-  return { weeks, protein, month };
+  return { periodCount, weeks, protein, month };
 }
 
 /**
@@ -176,7 +180,7 @@ export async function getBudgetSummary(
  * back then — that's no longer true, so the exclusion would now just be wrong in the other
  * direction: real protein spend with a real protein budget, silently missing from the total.)
  *
- * Still `null` unless **every** week (1-5) has a budget set: a partial target (say, only week 1)
+ * Still `null` unless **every** configured period has a budget set: a partial target (say, only week 1)
  * compared against the whole month's spend would read as "over/under budget" against money three
  * other weeks never had a target for — not a number worth showing at all. Protein has no such gate
  * of its own: an unset protein budget just contributes `0` to the total, which is correct — money
@@ -209,6 +213,13 @@ export async function upsertBudgets(
   input: BudgetUpdateRequest,
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    const scope = { userId, periodMonth };
+    const currentCount = await lockMonthPeriods(tx, scope);
+    const periodCount = input.periodCount ?? currentCount;
+    for (const week of input.weeks ?? []) assertPeriodInMonth(week.week, periodCount);
+    if (input.periodCount !== undefined && periodCount !== currentCount) {
+      await resizeMonthPeriods(tx, scope, periodCount);
+    }
     for (const week of input.weeks ?? []) {
       if (week.amount === null) {
         await tx.weeklyBudget.deleteMany({

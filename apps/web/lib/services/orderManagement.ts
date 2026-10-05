@@ -1,3 +1,8 @@
+import {
+  lockMonthPeriods,
+  assertPeriodInMonth,
+  lockPeriodWrites,
+} from "@/lib/services/monthPeriods";
 import { prisma, Prisma } from "@/lib/db/prisma";
 import { assertCategoriesExist } from "@/lib/services/categoryTaxonomy";
 import { getUserCurrency, assertCurrencyMatches } from "@/lib/services/users";
@@ -36,15 +41,21 @@ export async function updateOrder(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    await lockPeriodWrites(tx, userId);
     const existing = await tx.order.findFirst({
       where: { id: orderId, userId },
-      select: { periodMonth: true },
+      select: { periodMonth: true, periodWeek: true },
     });
     if (!existing) {
       throw orderNotFound();
     }
 
     const nextPeriodMonth = input.periodMonth ? parseMonthLabel(input.periodMonth) : null;
+    const periodCount = await lockMonthPeriods(tx, {
+      userId,
+      periodMonth: nextPeriodMonth ?? existing.periodMonth,
+    });
+    assertPeriodInMonth(input.periodWeek ?? existing.periodWeek, periodCount);
     const affectedMonths = monthsToRecompute(existing.periodMonth, nextPeriodMonth);
     const order = await applyEdit(tx, userId, orderId, input, nextPeriodMonth);
 
@@ -98,6 +109,7 @@ async function applyEdit(
 
 export async function deleteOrder(userId: string, orderId: string): Promise<{ id: string }> {
   await prisma.$transaction(async (tx) => {
+    await lockPeriodWrites(tx, userId);
     const order = await tx.order.findFirst({
       where: { id: orderId, userId },
       select: { periodMonth: true, receiptId: true },

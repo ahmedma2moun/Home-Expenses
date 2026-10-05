@@ -26,6 +26,7 @@ class FakeDecimal {
   }
 }
 
+const settingsFindUnique = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const weeklyBudgetFindMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const weeklyBudgetUpsert = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const weeklyBudgetDeleteMany = vi.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -40,6 +41,8 @@ const transaction = vi.fn<(...args: unknown[]) => void>();
 
 vi.mock("@/lib/db/prisma", () => {
   const client = {
+    monthPeriodSettings: { findUnique: (...args: unknown[]) => settingsFindUnique(...args) },
+    $executeRaw: vi.fn().mockResolvedValue(0),
     weeklyBudget: {
       findMany: (...args: unknown[]) => weeklyBudgetFindMany(...args),
       upsert: (...args: unknown[]) => weeklyBudgetUpsert(...args),
@@ -306,5 +309,39 @@ describe("upsertBudgets", () => {
 
     expect(proteinBudgetUpsert).not.toHaveBeenCalled();
     expect(proteinBudgetDeleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("configurable period budgets", () => {
+  it("includes additional periods in the monthly target and actual spend", async () => {
+    settingsFindUnique.mockResolvedValueOnce({ periodCount: 6 });
+    weeklyBudgetFindMany.mockResolvedValue(
+      Array.from({ length: 6 }, (_, i) => ({
+        periodWeek: i + 1,
+        amount: new FakeDecimal("100.00"),
+      })),
+    );
+    proteinBudgetFindUnique.mockResolvedValue(null);
+    proteinMonthlySummaryFindUnique.mockResolvedValue(null);
+    queryRaw.mockResolvedValue([{ periodWeek: 6, total: "40.25" }]);
+    const { getBudgetSummary } = await import("./budgets");
+    const summary = await getBudgetSummary("user-1", JULY);
+    expect(summary.periodCount).toBe(6);
+    expect(summary.weeks).toHaveLength(6);
+    expect(summary.weeks[5]?.remaining).toBe("59.75");
+    expect(summary.month).toEqual({
+      budgetAmount: "600.00",
+      spentAmount: "40.25",
+      remaining: "559.75",
+    });
+  });
+
+  it("rejects a budget outside the saved period count before writing", async () => {
+    settingsFindUnique.mockResolvedValueOnce({ periodCount: 3 });
+    const { upsertBudgets } = await import("./budgets");
+    await expect(
+      upsertBudgets("user-1", JULY, { weeks: [{ week: 4, amount: "100.00" }] }),
+    ).rejects.toThrow("between 1 and 3");
+    expect(weeklyBudgetUpsert).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,7 @@ import { nonNegativeMoneySchema, periodWeekSchema } from "@/lib/api/schemas/comm
  * an omitted `weeks`/`protein` leaves that budget untouched; a `protein` of `null` deletes it
  * (back to "no protein budget set" — same absent/null convention as `OrderUpdateRequestSchema`).
  * `weeks` entries not mentioned are left alone too — this is an upsert of the given weeks, not a
- * full replace of the month's five; a week's own `amount: null` deletes just that week's budget,
+ * full replace of the month's configured periods; a week's own `amount: null` deletes just that week's budget,
  * same convention as `protein`.
  */
 export const WeekBudgetInputSchema = z.object({
@@ -18,17 +18,22 @@ export type WeekBudgetInput = z.infer<typeof WeekBudgetInputSchema>;
 
 export const BudgetUpdateRequestSchema = z
   .object({
+    periodCount: z.number().int().min(1).max(31).optional(),
     weeks: z
       .array(WeekBudgetInputSchema)
       .min(1)
-      .max(5)
+      .max(31)
       .refine((weeks) => new Set(weeks.map((week) => week.week)).size === weeks.length, {
         message: "Each week may appear at most once.",
       })
       .optional(),
     protein: nonNegativeMoneySchema.nullable().optional(),
   })
-  .refine((input) => input.weeks !== undefined || input.protein !== undefined, {
-    message: "Provide at least one of weeks or protein.",
-  });
+  .refine(
+    (input) =>
+      input.weeks !== undefined || input.protein !== undefined || input.periodCount !== undefined,
+    {
+      message: "Provide periods, protein, or a period count.",
+    },
+  );
 export type BudgetUpdateRequest = z.infer<typeof BudgetUpdateRequestSchema>;

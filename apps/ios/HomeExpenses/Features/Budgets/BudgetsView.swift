@@ -33,6 +33,7 @@ struct BudgetsView: View {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .disabled(viewModel.isSaving)
             .navigationTitle("Budgets — \(MonthLabel.displayName(viewModel.selectedMonth))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -69,11 +70,26 @@ struct BudgetsView: View {
                 Text("This month")
             } footer: {
                 Text(
-                    "Set every week's budget to see a combined monthly figure here — a partial target can't be fairly compared against the whole month's spend."
+                    "Set every period's budget to see a combined monthly figure here — a partial target can't be fairly compared against the whole month's spend."
                 )
             }
 
-            Section("By week") {
+            Section {
+                Stepper(
+                    "Periods: \(viewModel.weeks.count)",
+                    value: Binding(
+                        get: { viewModel.weeks.count },
+                        set: { viewModel.setPeriodCount($0) }
+                    ),
+                    in: 1...31
+                )
+            } header: {
+                Text("Periods this month")
+            } footer: {
+                Text("Reducing the count moves purchases from removed periods into the last period and removes their budgets. Review the last period's budget before saving. Spending totals refresh after saving.")
+            }
+
+            Section("By period") {
                 ForEach(viewModel.weeks) { week in
                     weekRow(week)
                 }
@@ -84,7 +100,7 @@ struct BudgetsView: View {
             } header: {
                 Text("Protein")
             } footer: {
-                Text("Tracked separately — protein purchases count only here, not toward the week they fell in.")
+                Text("Tracked separately — protein purchases count only here, not toward the period they fell in.")
             }
 
             if let errorMessage = viewModel.errorMessage {
@@ -120,7 +136,7 @@ struct BudgetsView: View {
                         .foregroundStyle((viewModel.monthRemaining ?? 0) < 0 ? .red : .primary)
                 }
             } else {
-                Text("Set every week's budget to see a monthly total.")
+                Text("Set every period's budget to see a monthly total.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -130,7 +146,7 @@ struct BudgetsView: View {
     private func weekRow(_ week: EditableWeekBudget) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Toggle(
-                "Week \(week.week)",
+                "Period \(week.week)",
                 isOn: Binding(
                     get: { week.hasBudget },
                     set: { viewModel.setWeek(week.week, hasBudget: $0) }
@@ -152,7 +168,7 @@ struct BudgetsView: View {
                     )
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
-                    .accessibilityLabel("Week \(week.week) budget")
+                    .accessibilityLabel("Period \(week.week) budget")
                 }
             }
 

@@ -11,7 +11,7 @@ struct MonthCategoryTotalDTO: Decodable, Identifiable, Sendable {
     let orderCount: Int
 }
 
-/// One week (1-5) within the selected month — total-only, no per-category split. Always 5 entries
+/// One configured period within the selected month — total-only, no per-category split. One entry per configured period
 /// on the wire, zero-filled for a week with no spending.
 struct WeekTotalDTO: Decodable, Identifiable, Sendable {
     var id: Int { week }

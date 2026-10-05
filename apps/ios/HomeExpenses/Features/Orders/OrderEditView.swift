@@ -34,6 +34,7 @@ struct OrderEditView: View {
         }
         .navigationTitle("Edit order")
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: viewModel.periodMonth) { await viewModel.loadPeriods() }
         .task {
             await viewModel.loadAll()
         }
@@ -58,6 +59,8 @@ struct OrderEditView: View {
                 TextField("Merchant", text: $viewModel.merchant)
                 monthRow
                 weekRow
+                    .disabled(!viewModel.periodsLoaded)
+                periodLoadingRow
                 TextField("Currency", text: $viewModel.currency)
                     .textInputAutocapitalization(.characters)
             }
@@ -121,16 +124,25 @@ struct OrderEditView: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
+    private var periodLoadingRow: some View {
+        if let error = viewModel.periodsError {
+            Button("\(error) Retry") { Task { await viewModel.loadPeriods() } }
+        } else if !viewModel.periodsLoaded {
+            ProgressView("Loading periods…")
+        }
+    }
+
     private var weekRow: some View {
         HStack {
-            Text("Week")
+            Text("Period")
             Spacer()
             Menu {
-                ForEach(1...5, id: \.self) { week in
-                    Button("Week \(week)") { viewModel.periodWeek = week }
+                ForEach(1...viewModel.periodCount, id: \.self) { week in
+                    Button("Period \(week)") { viewModel.periodWeek = week }
                 }
             } label: {
-                Label("Week \(viewModel.periodWeek)", systemImage: "calendar")
+                Label("Period \(viewModel.periodWeek)", systemImage: "calendar")
                     .font(.subheadline)
             }
         }
@@ -181,7 +193,7 @@ struct OrderEditView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isSaving)
+            .disabled(!viewModel.periodsLoaded || viewModel.isSaving)
         }
         .padding()
         .background(.bar)

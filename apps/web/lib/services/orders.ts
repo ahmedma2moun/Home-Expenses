@@ -1,3 +1,4 @@
+import { lockMonthPeriods, assertPeriodInMonth } from "@/lib/services/monthPeriods";
 import { prisma, isUniqueConstraintViolation } from "@/lib/db/prisma";
 import { AppError } from "@/lib/api/envelope";
 import { assertCategoriesExist } from "@/lib/services/categoryTaxonomy";
@@ -63,6 +64,8 @@ export async function confirmReceipt(
 
   try {
     const orderId = await prisma.$transaction(async (tx) => {
+      const periodCount = await lockMonthPeriods(tx, { userId, periodMonth });
+      assertPeriodInMonth(input.periodWeek, periodCount);
       await assertCategoriesExist(tx, input.items);
 
       const order = await tx.order.create({

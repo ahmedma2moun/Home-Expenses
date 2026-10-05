@@ -125,14 +125,14 @@ describe("OrderUpdateRequestSchema", () => {
     expect(OrderUpdateRequestSchema.safeParse({ periodMonth: "2099-12" }).success).toBe(true);
   });
 
-  it("accepts a periodWeek within 1-5", () => {
+  it("accepts a periodWeek within 1-31", () => {
     const result = OrderUpdateRequestSchema.safeParse({ periodWeek: 3 });
     expect(result.success).toBe(true);
     expect(result.success && result.data.periodWeek).toBe(3);
   });
 
-  it("rejects a periodWeek outside 1-5", () => {
+  it("rejects a periodWeek outside 1-31", () => {
     expect(OrderUpdateRequestSchema.safeParse({ periodWeek: 0 }).success).toBe(false);
-    expect(OrderUpdateRequestSchema.safeParse({ periodWeek: 6 }).success).toBe(false);
+    expect(OrderUpdateRequestSchema.safeParse({ periodWeek: 32 }).success).toBe(false);
   });
 });

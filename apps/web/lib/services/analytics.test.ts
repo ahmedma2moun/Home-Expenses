@@ -45,6 +45,7 @@ vi.mock("@/lib/services/budgets", () => ({
 }));
 
 const EMPTY_BUDGET = {
+  periodCount: 5,
   weeks: Array.from({ length: 5 }, (_, index) => ({
     week: index + 1,
     budgetAmount: null,
