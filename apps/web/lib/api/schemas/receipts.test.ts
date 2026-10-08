@@ -188,6 +188,26 @@ describe("ReceiptCreateRequestSchema — on_device extraction", () => {
     expect(result.success).toBe(true);
   });
 
+  // Regression: Swift's synthesized `Encodable` omits nil optionals, so iOS sends an unreadable
+  // price as an absent key, not `null`. That 400'd every on-device receipt with an unread amount.
+  it("treats absent money keys as null", () => {
+    const result = ReceiptCreateRequestSchema.safeParse({
+      ...onDeviceRequest,
+      clientParsedPayload: {
+        isReceipt: true,
+        items: [{ name: "Milk", quantity: 1, category: "dairy_eggs" }],
+        warnings: [],
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const payload = result.data.clientParsedPayload;
+      expect(payload?.items[0]?.unitPrice).toBeNull();
+      expect(payload?.items[0]?.lineTotal).toBeNull();
+      expect(payload?.total).toBeNull();
+    }
+  });
+
   it("rejects a clientLatencyMs above the 10-minute cap", () => {
     const result = ReceiptCreateRequestSchema.safeParse({
       ...onDeviceRequest,

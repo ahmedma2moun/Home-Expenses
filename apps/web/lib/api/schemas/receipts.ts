@@ -10,6 +10,12 @@ import { OrderItemInputSchema } from "@/lib/api/schemas/orders";
 
 const confidenceSchema = z.coerce.number().min(0).max(1).nullable().optional();
 
+// An unreadable amount may arrive as an explicit `null` *or* as an absent key: Swift's synthesized
+// `Encodable` omits nil optionals entirely, so the iOS on-device path never sends `"unitPrice": null`.
+// Both mean "unknown"; normalizing absent → null keeps the stored payload's shape identical to the
+// cloud path's. Present values still go through the strict `moneySchema` check.
+const optionalMoneySchema = moneySchema.nullable().default(null);
+
 // Strict, size-capped wire schema for `clientParsedPayload` (the on-device extraction result,
 // AI_PROVIDER.md §10). Deliberately a *separate* schema from the cloud AI-output parser
 // (`ParsedReceiptSchema` in lib/services/extraction.ts): that one exists to tolerate a model's
@@ -26,8 +32,8 @@ const ClientParsedReceiptItemSchema = z.object({
   brand: z.string().min(1).max(200).nullable().optional(),
   quantity: z.coerce.number().positive().nullable().default(1),
   unit: z.string().max(50).nullable().optional(),
-  unitPrice: moneySchema.nullable(),
-  lineTotal: moneySchema.nullable(),
+  unitPrice: optionalMoneySchema,
+  lineTotal: optionalMoneySchema,
   category: z.string().min(1).max(100),
   confidence: confidenceSchema,
 });
@@ -37,10 +43,10 @@ export const ClientParsedReceiptSchema = z.object({
   merchant: z.string().max(200).nullable().optional(),
   currency: z.string().min(1).max(8).nullable().optional(),
   items: z.array(ClientParsedReceiptItemSchema).max(200).default([]),
-  subtotal: moneySchema.nullable(),
-  tax: moneySchema.nullable(),
-  discount: moneySchema.nullable(),
-  total: moneySchema.nullable(),
+  subtotal: optionalMoneySchema,
+  tax: optionalMoneySchema,
+  discount: optionalMoneySchema,
+  total: optionalMoneySchema,
   warnings: z.array(z.string().max(300)).max(20).default([]),
   overallConfidence: confidenceSchema,
 });
