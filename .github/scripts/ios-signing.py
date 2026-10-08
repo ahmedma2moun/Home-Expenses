@@ -24,11 +24,13 @@ def run(*cmd, **kw):
     return subprocess.run(cmd, check=True, **kw)
 
 
-def api(method, path, **kw):
+def api(method, path, allow_404=False, **kw):
     token = jwt.encode(
         {"iss": E["ASC_ISSUER_ID"], "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
         open(E["ASC_KEY_PATH"]).read(), algorithm="ES256", headers={"kid": E["ASC_KEY_ID"]})
     r = requests.request(method, API + path, headers={"Authorization": f"Bearer {token}"}, timeout=60, **kw)
+    if allow_404 and r.status_code == 404:
+        return None
     if not r.ok:
         sys.exit(f"::error::ASC API {method} {path} -> {r.status_code}: {r.text}")
     return r.json()
@@ -129,8 +131,13 @@ profile = None
 for p in profiles:
     if p["attributes"]["profileType"] != "IOS_APP_STORE" or p["attributes"]["profileState"] != "ACTIVE":
         continue
-    certs = api("GET", f"/profiles/{p['id']}/certificates?limit=200")["data"]
-    if any(c["id"] == cert_id for c in certs):
+    # The bundle ID's related-profiles list can include profiles the /profiles endpoint then 404s
+    # on (Xcode-managed or since-deleted ones) — skip those instead of aborting.
+    certs = api("GET", f"/profiles/{p['id']}/certificates?limit=200", allow_404=True)
+    if certs is None:
+        print(f"Skipping profile {p['id']} ('{p['attributes'].get('name')}'): not readable via the API.")
+        continue
+    if any(c["id"] == cert_id for c in certs["data"]):
         profile = p
         break
 if profile:
