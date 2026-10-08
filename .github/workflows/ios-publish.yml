@@ -1,0 +1,192 @@
+name: iOS — Archive → TestFlight
+
+# Generated from IOS_PUBLISH_ACTION_GUIDE.md. Native Swift app, XcodeGen project (apps/ios/project.yml),
+# with a WidgetKit extension that needs its own App Store profile (guide §8, "App extensions").
+
+on:
+  workflow_dispatch:
+  # push:
+  #   tags: ['ios-v*']
+
+concurrency:
+  group: ios-publish
+  cancel-in-progress: false
+
+jobs:
+  build-and-distribute:
+    name: Xcode Build → TestFlight
+    # FoundationModels (on-device extraction) needs the iOS 26 SDK → Xcode 26.
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      BUNDLE_ID: com.homeexpenses.HomeExpenses
+      WIDGET_BUNDLE_ID: com.homeexpenses.HomeExpenses.Widget
+      XC_CONTAINER: -project apps/ios/HomeExpenses.xcodeproj
+      XC_PROJECT: apps/ios/HomeExpenses.xcodeproj
+      SCHEME: HomeExpenses
+      TARGET: HomeExpenses
+      WIDGET_TARGET: HomeExpensesWidgetExtension
+      APP_INFOPLIST: apps/ios/HomeExpenses/Resources/Info.plist
+      WIDGET_INFOPLIST: apps/ios/HomeExpensesWidget/Resources/Info.plist
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$XC" ] && sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      # project.yml is the source of truth (apps/ios/README.md) — regenerate so a forgotten
+      # `xcodegen generate` can't ship a stale project.
+      - name: Generate project (XcodeGen)
+        working-directory: apps/ios
+        run: brew install xcodegen && xcodegen generate
+
+      - name: Create build keychain
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Set up App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_API_KEY_CONTENT }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          if printf '%s' "$ASC_KEY_CONTENT" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%b' "$ASC_KEY_CONTENT" > "$KEY_FILE"          # raw PEM (handles literal \n)
+          else
+            printf '%s' "$ASC_KEY_CONTENT" | base64 --decode > "$KEY_FILE"   # base64 of the .p8
+          fi
+          openssl pkey -in "$KEY_FILE" -noout 2>/dev/null \
+            || { echo "::error::ASC_API_KEY_CONTENT is not a valid .p8 key"; exit 1; }
+          echo "ASC_KEY_PATH=$KEY_FILE" >> "$GITHUB_ENV"
+
+      # Widget first: this run reuses or creates the distribution certificate and imports it.
+      - name: Set up signing — widget extension
+        env:
+          BUNDLE_ID: ${{ env.WIDGET_BUNDLE_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          # Homebrew Python is externally managed (PEP 668) → use a throwaway venv.
+          VENV="$RUNNER_TEMP/signing-venv"
+          python3 -m venv "$VENV"
+          "$VENV/bin/pip" install --quiet --disable-pip-version-check pyjwt cryptography requests
+          "$VENV/bin/python" .github/scripts/ios-signing.py
+
+      # Same certificate (read back from the .p12 the first run left in $RUNNER_TEMP, so this also
+      # works on the run that just created it), app bundle ID. The script overwrites PROFILE_NAME,
+      # so the widget's is saved under its own name first.
+      - name: Set up signing — app
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          SKIP_CERT_IMPORT: "1"
+        run: |
+          echo "WIDGET_PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          CERTIFICATE_P12_BASE64=$(base64 -i "$RUNNER_TEMP/cert.p12") \
+            "$RUNNER_TEMP/signing-venv/bin/python" .github/scripts/ios-signing.py
+
+      - name: Configure target signing (manual, distribution)
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          gem install xcodeproj --no-document
+          ruby - <<'EOF'
+          require 'xcodeproj'
+          project = Xcodeproj::Project.open(ENV['XC_PROJECT'])
+          attrs = (project.root_object.attributes['TargetAttributes'] ||= {})
+          { ENV['TARGET'] => ENV['PROFILE_NAME'], ENV['WIDGET_TARGET'] => ENV['WIDGET_PROFILE_NAME'] }.each do |name, profile|
+            target = project.targets.find { |t| t.name == name } or raise "Target #{name} not found"
+            target.build_configurations.each do |c|
+              c.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+              c.build_settings['DEVELOPMENT_TEAM'] = ENV['TEAM_ID']
+              c.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
+              c.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = 'Apple Distribution'
+              c.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = profile
+            end
+            attrs[target.uuid] ||= {}
+            attrs[target.uuid]['ProvisioningStyle'] = 'Manual'
+            attrs[target.uuid]['DevelopmentTeam'] = ENV['TEAM_ID']
+          end
+          project.save
+          EOF
+
+      - name: Set build number (highest uploaded + 1)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+        run: |
+          # TestFlight rejects a CFBundleVersion that is not higher than the last upload. Don't use
+          # github.run_number: builds uploaded earlier (Xcode, another workflow) may already be higher.
+          BUILD_NUMBER=$("$RUNNER_TEMP/signing-venv/bin/python" .github/scripts/ios-build-number.py)
+          # Both Info.plists hold a literal CFBundleVersion, and an extension's must match its app's.
+          for PLIST in "$APP_INFOPLIST" "$WIDGET_INFOPLIST"; do
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST"
+          done
+          echo "Build number: $BUILD_NUMBER"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Write ExportOptions.plist
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key><dict>
+              <key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
+              <key>${WIDGET_BUNDLE_ID}</key><string>${WIDGET_PROFILE_NAME}</string>
+            </dict>
+          </dict></plist>
+          EOF
+
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive $XC_CONTAINER \
+            -scheme "$SCHEME" -configuration Release -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+          # NOTE: deliberately no -allowProvisioningUpdates (manual signing only)
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+          ls "$RUNNER_TEMP/export"/*.ipa
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+        run: |
+          # altool finds the key in ~/.appstoreconnect/private_keys/AuthKey_<ID>.p8
+          xcrun altool --upload-app -t ios -f "$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain" || true
