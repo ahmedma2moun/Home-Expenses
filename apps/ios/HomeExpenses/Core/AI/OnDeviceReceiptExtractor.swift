@@ -132,12 +132,26 @@ enum OnDeviceReceiptExtractor {
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
+            request.recognitionLanguages = recognitionLanguages(for: request)
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             try handler.perform([request])
             let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
             pages.append(lines.joined(separator: "\n"))
         }
         return pages.joined(separator: "\n---\n")
+    }
+
+    /// Vision defaults to `["en-US"]` only, which turns Arabic item names into Latin-diacritic
+    /// garbage ("232.5îșîŚš") or drops them — the model then has nothing but prices to name items
+    /// with. Arabic first: on bilingual Egyptian receipts it's the item-name language, and Vision
+    /// treats the list as a priority order. Filtered to what this OS's recognizer actually supports,
+    /// since an unsupported code makes `perform` throw instead of falling back.
+    private static let preferredRecognitionLanguages = ["ar-SA", "en-US"]
+
+    private static func recognitionLanguages(for request: VNRecognizeTextRequest) -> [String] {
+        let supported = Set((try? request.supportedRecognitionLanguages()) ?? [])
+        let languages = preferredRecognitionLanguages.filter(supported.contains)
+        return languages.isEmpty ? ["en-US"] : languages
     }
 
     private static func instructions(categorySlugs: [String]) -> String {
