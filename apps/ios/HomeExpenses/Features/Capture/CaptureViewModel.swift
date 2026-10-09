@@ -39,7 +39,7 @@ final class CaptureViewModel: ObservableObject {
     @Published var extractionMode: ExtractionMode = .cloud
 
     private let client = APIClient.shared
-    /// OCR + on-device generation can run for several seconds — if the user backs out of the
+    /// On-device generation can run for several seconds — if the user backs out of the
     /// Capture screen mid-analyze, `CaptureView` cancels this from `.onDisappear` rather than
     /// leaving an untracked `Task` running against a view model nothing still references.
     private var analyzeTask: Task<Void, Never>?
@@ -127,7 +127,7 @@ final class CaptureViewModel: ObservableObject {
             let receipt: ReceiptSummaryDTO = try await client.post("/api/v1/receipts", body: request)
             return CreatedReceipt(receiptId: receipt.id, images: images)
         } catch {
-            // A cancelled analyze (user backed out mid-OCR/model-run, see `cancelAnalyzing()`) is
+            // A cancelled analyze (user backed out mid-model-run, see `cancelAnalyzing()`) is
             // not a failure to report — `ParsingViewModel` and friends use this same check.
             guard !error.isTaskCancellation else { return nil }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Something went wrong."
@@ -140,7 +140,7 @@ final class CaptureViewModel: ObservableObject {
     /// is reused anywhere else.
     private func attachOnDeviceParse(to request: inout ReceiptCreateRequest) async throws {
         let categorySlugs = try await loadCategorySlugs()
-        // Timer starts after the category fetch: this measures OCR + on-device generation only,
+        // Timer starts after the category fetch: this measures on-device generation only,
         // matching what `Receipt.latencyMs` means for the cloud path (the vision call's own
         // duration, not any network round-trip around it).
         let startedAt = Date()

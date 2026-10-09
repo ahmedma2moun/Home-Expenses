@@ -1,6 +1,7 @@
 # On-device extraction prompt — v1
 
-**Status:** live — wired into `apps/ios/HomeExpenses/Core/AI/OnDeviceReceiptExtractor.swift`
+**Status:** superseded by `extraction-on-device.v2.md` (image input, iOS 27+). Kept for history;
+was wired into `apps/ios/HomeExpenses/Core/AI/OnDeviceReceiptExtractor.swift`
 (`OnDeviceReceiptExtractor.instructions(categorySlugs:)`), called from the Capture screen when the
 user picks the "On This iPhone" extraction option instead of the default cloud path. Keep this file
 and that string in sync per the `prompt-change` skill. See `AI_PROVIDER.md` §10 for how this path

@@ -11,6 +11,12 @@ enum ImagePreprocessor {
         resize(image, maxDimension: maxDimension).jpegData(compressionQuality: jpegQuality)
     }
 
+    /// The same downscale as `process(_:)`, without the JPEG re-encode — for consumers that take an
+    /// image rather than upload bytes (the on-device model's image attachments).
+    static func downscaled(_ image: UIImage) -> UIImage {
+        resize(image, maxDimension: maxDimension)
+    }
+
     private static func resize(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
         let size = image.size
         let longestEdge = max(size.width, size.height)

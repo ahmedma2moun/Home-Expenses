@@ -83,7 +83,7 @@ struct CaptureView: View {
                 EditButton()
             }
         }
-        // On-device analysis (OCR + model generation) can run for several seconds — if the user
+        // On-device analysis (model generation) can run for several seconds — if the user
         // backs out of this screen mid-run, nothing else would otherwise stop it.
         .onDisappear { viewModel.cancelAnalyzing() }
         .fullScreenCover(isPresented: $isShowingCamera) {

@@ -84,7 +84,7 @@ struct ReceiptDetailDTO: Decodable, Sendable {
     let parsedPayload: ParsedReceiptDTO?
     let parseError: String?
     let images: [ReceiptImageDetailDTO]
-    /// How long extraction itself took — the vision call for cloud, OCR+generation for on-device
+    /// How long extraction itself took — the vision call for cloud, model generation for on-device
     /// (AI_PROVIDER.md §10). `nil` while still `PARSING`, or if a client never reported one.
     let latencyMs: Int?
 }
