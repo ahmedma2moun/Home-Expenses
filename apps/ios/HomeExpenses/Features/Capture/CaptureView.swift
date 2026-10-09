@@ -1,10 +1,11 @@
 import PhotosUI
 import SwiftUI
 
-/// Photo picker with reorderable thumbnails; "Analyze" uploads and starts the parse
-/// (PROJECT_SPEC.md §10, screen 2).
+/// Camera capture and photo picker with reorderable thumbnails; "Analyze" uploads and starts the
+/// parse (PROJECT_SPEC.md §10, screen 2).
 struct CaptureView: View {
     @StateObject private var viewModel = CaptureViewModel()
+    @State private var isShowingCamera = false
     var onReceiptCreated: (CreatedReceipt) -> Void
 
     var body: some View {
@@ -13,7 +14,7 @@ struct CaptureView: View {
                 ContentUnavailableView(
                     "Add a receipt",
                     systemImage: "camera",
-                    description: Text("Pick one or more screenshots or photos of your receipt.")
+                    description: Text("Take photos of your receipt, or pick screenshots or photos you already have.")
                 )
             } else {
                 List {
@@ -54,14 +55,11 @@ struct CaptureView: View {
                     .padding(.horizontal)
             }
 
-            PhotosPicker(
-                selection: $viewModel.selectedItems,
-                maxSelectionCount: 6,
-                matching: .images
-            ) {
-                Label("Choose photos", systemImage: "photo.on.rectangle")
-            }
-            .buttonStyle(.bordered)
+            ImageSourceButtons(
+                selectedItems: $viewModel.selectedItems,
+                remainingSlots: viewModel.remainingSlots,
+                onTakePhoto: { isShowingCamera = true }
+            )
 
             Button {
                 viewModel.startAnalyzing(onCreated: onReceiptCreated)
@@ -88,6 +86,41 @@ struct CaptureView: View {
         // On-device analysis (OCR + model generation) can run for several seconds — if the user
         // backs out of this screen mid-run, nothing else would otherwise stop it.
         .onDisappear { viewModel.cancelAnalyzing() }
+        .fullScreenCover(isPresented: $isShowingCamera) {
+            CameraPicker(
+                onCapture: viewModel.addCameraPhoto,
+                onFinish: { isShowingCamera = false }
+            )
+                .ignoresSafeArea()
+        }
+    }
+}
+
+/// "Take photo" (hidden when there's no camera, e.g. the simulator) and "Choose photos", both
+/// disabled once the receipt has the maximum number of images.
+private struct ImageSourceButtons: View {
+    @Binding var selectedItems: [PhotosPickerItem]
+    let remainingSlots: Int
+    var onTakePhoto: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if CameraPicker.isAvailable {
+                Button(action: onTakePhoto) {
+                    Label("Take photo", systemImage: "camera")
+                }
+                .buttonStyle(.bordered)
+            }
+            PhotosPicker(
+                selection: $selectedItems,
+                maxSelectionCount: max(1, remainingSlots),
+                matching: .images
+            ) {
+                Label("Choose photos", systemImage: "photo.on.rectangle")
+            }
+            .buttonStyle(.bordered)
+        }
+        .disabled(remainingSlots == 0)
     }
 }
 

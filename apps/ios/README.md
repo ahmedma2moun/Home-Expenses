@@ -47,7 +47,7 @@ so would regenerate and silently wipe the hand-written keys in it (`API_BASE_URL
 - **Four tabs** (`RootView`): **Home** (`Features/Summary`), **Orders**, **Analytics**,
   **Insights**. Capture, Parsing, and Review aren't tabs — they're a modal flow (`ReceiptFlowView`)
   launched from Home's "+" toolbar button.
-- **Capture** uses `PhotosPicker` only (max 6 images) — no camera capture, no `VisionKit` document
+- **Capture** uses the system camera (`UIImagePickerController`) and `PhotosPicker`, combined max 6 images — no `VisionKit` document
   scanner, despite what the spec describes.
 - **Analytics** is a month-over-month category comparison with a drill-down, not a Swift Charts
   trend view — there's no `import Charts` anywhere in the project. The AI narrative UI isn't an
