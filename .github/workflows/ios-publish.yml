@@ -16,7 +16,9 @@ jobs:
   build-and-distribute:
     name: Xcode Build → TestFlight
     # On-device extraction uses FoundationModels image input → needs the iOS 27 SDK (Xcode 27).
-    runs-on: macos-26
+    # GitHub names macOS images by Xcode major now; `macos-26` tops out at Xcode 26.x / iOS 26.5
+    # SDK, where `Attachment` doesn't exist. Arm64, and still "preview" on GitHub's side.
+    runs-on: xcode-27
     timeout-minutes: 90
     env:
       BUNDLE_ID: com.homeexpenses.HomeExpenses
@@ -32,11 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select newest Xcode
+      # The image's default Xcode.app is its newest *release*. "Newest installed" would pick a beta
+      # (the xcode-27 image ships 27.x betas alongside), and App Store Connect rejects beta builds.
+      - name: Select release Xcode
         run: |
-          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          [ -n "$XC" ] && sudo xcode-select -s "$XC"
+          sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
+          if xcodebuild -version | grep -qi beta || ls -l /Applications/Xcode.app | grep -qi beta; then
+            echo "::error::Default Xcode is a beta build; App Store uploads would be rejected."
+            exit 1
+          fi
 
       # project.yml is the source of truth (apps/ios/README.md) — regenerate so a forgotten
       # `xcodegen generate` can't ship a stale project.
