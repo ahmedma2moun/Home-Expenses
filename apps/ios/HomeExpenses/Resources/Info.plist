@@ -51,9 +51,9 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Home Expenses uses the camera to photograph receipts. Images are sent to the AI provider to extract items and categories.</string>
+	<string>Home Expenses uses the camera to photograph receipts. Images are sent to the AI provider to extract items and categories, unless you choose On This iPhone.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Home Expenses reads photos you pick to import receipt screenshots. Images are sent to the AI provider to extract items and categories.</string>
+	<string>Home Expenses reads photos you pick to import receipt screenshots. Images are sent to the AI provider to extract items and categories, unless you choose On This iPhone.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

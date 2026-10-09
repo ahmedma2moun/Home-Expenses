@@ -19,8 +19,17 @@ final class CaptureViewModel: ObservableObject {
         let uiImage: UIImage
     }
 
+    /// Same cap the backend enforces (`MAX_IMAGES` in lib/api/schemas/receipts.ts), across camera
+    /// shots and library picks combined.
+    static let maxImages = 6
+
+    /// Cleared after each load so the picker acts as "add photos": a later pick, or a camera shot
+    /// in between, appends instead of replacing what's already on the list.
     @Published var selectedItems: [PhotosPickerItem] = [] {
-        didSet { Task { await loadSelection() } }
+        didSet {
+            guard !selectedItems.isEmpty else { return }
+            Task { await loadSelection() }
+        }
     }
     @Published private(set) var thumbnails: [CapturedImage] = []
     @Published private(set) var isAnalyzing = false
@@ -36,6 +45,13 @@ final class CaptureViewModel: ObservableObject {
     private var analyzeTask: Task<Void, Never>?
 
     var canAnalyze: Bool { !thumbnails.isEmpty && !isAnalyzing }
+
+    var remainingSlots: Int { max(0, Self.maxImages - thumbnails.count) }
+
+    func addCameraPhoto(_ image: UIImage) {
+        guard remainingSlots > 0 else { return }
+        thumbnails.append(CapturedImage(uiImage: image))
+    }
 
     /// Read by `CaptureView` to decide whether the on-device segment is enabled/dimmed. A computed
     /// property, not `@Published` state: `SystemLanguageModel.default.availability` is a cheap
@@ -65,15 +81,17 @@ final class CaptureViewModel: ObservableObject {
     }
 
     private func loadSelection() async {
-        var images: [CapturedImage] = []
-        for item in selectedItems {
+        let items = selectedItems
+        selectedItems = []
+        for item in items {
+            // Re-checked per item, not sliced up front: a camera shot can land between awaits.
+            guard remainingSlots > 0 else { break }
             if let data = try? await item.loadTransferable(type: Data.self),
                 let uiImage = UIImage(data: data)
             {
-                images.append(CapturedImage(uiImage: uiImage))
+                thumbnails.append(CapturedImage(uiImage: uiImage))
             }
         }
-        thumbnails = images
     }
 
     /// Downscales every image, base64-encodes it into the request body, and creates the Receipt.

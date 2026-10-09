@@ -52,6 +52,7 @@
 		AAD7E68CBA0D09ABA03A6E4F /* ItemHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9CE2AFE0E34FE22DEB60888 /* ItemHistoryViewModel.swift */; };
 		B38C89D1A7519F107F6CD1F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5163727FA5CD012711C3D928 /* Assets.xcassets */; };
 		B661D087FBE5AC2800FD970C /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812F308DA6F71D3C551E6C12 /* CaptureView.swift */; };
+		C4A1E0B2D3F4A5B6C7D8E9F0 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A1E0B2D3F4A5B6C7D8E9F1 /* CameraPicker.swift */; };
 		BB4EB1526A03D6A85A55AA19 /* HomeExpensesWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0A01B1A9DC8829E1EFFEB7 /* HomeExpensesWidgetBundle.swift */; };
 		C3CE406177F4192B3C615CA3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14F7264748742E6BB42F0B2B /* SwiftUI.framework */; };
 		C4F1EBF7D470A88BEF39FBC0 /* ClearableMoneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99EDEC8AA7091E12C86C9EFD /* ClearableMoneyTests.swift */; };
@@ -152,6 +153,7 @@
 		7B63B9AF80968D3DFB24C411 /* Money+FormatStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Money+FormatStyle.swift"; sourceTree = "<group>"; };
 		7EB3838F6E74D5CD5A33D653 /* HomeExpensesWidgetExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HomeExpensesWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		812F308DA6F71D3C551E6C12 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		C4A1E0B2D3F4A5B6C7D8E9F1 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		863A3EFE9E2B7B8654206957 /* OrderDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderDTOsTests.swift; sourceTree = "<group>"; };
 		8C5C6CBEAAAC72C93C53F93A /* AnalyticsChartData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChartData.swift; sourceTree = "<group>"; };
 		93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptFlowView.swift; sourceTree = "<group>"; };
@@ -253,6 +255,7 @@
 		3D2B6DC45D4D9C748B404130 /* Capture */ = {
 			isa = PBXGroup;
 			children = (
+				C4A1E0B2D3F4A5B6C7D8E9F1 /* CameraPicker.swift */,
 				812F308DA6F71D3C551E6C12 /* CaptureView.swift */,
 				59D4D5FE2DB906A11CC98C7E /* CaptureViewModel.swift */,
 				93E9AB6BC4359EC0F08ED11E /* ReceiptFlowView.swift */,
@@ -631,6 +634,7 @@
 				C7D21077B7EDD9241BDB8BF0 /* BudgetDTOs.swift in Sources */,
 				CE6294D4E5C4B3244E9BEB87 /* BudgetsView.swift in Sources */,
 				120C2A0F72EF7FA5D81B46E7 /* BudgetsViewModel.swift in Sources */,
+				C4A1E0B2D3F4A5B6C7D8E9F0 /* CameraPicker.swift in Sources */,
 				B661D087FBE5AC2800FD970C /* CaptureView.swift in Sources */,
 				E238DC1E9FB56D968554107B /* CaptureViewModel.swift in Sources */,
 				CF91A980C075542E723CC3C7 /* CategoryDTO.swift in Sources */,
