@@ -166,7 +166,7 @@ correction retry, both happening inside the same invocation via Next's `after()`
 
 ### On-device extraction (`extractionMode: "on_device"`)
 
-The iOS app can run extraction itself, on the phone's Apple Foundation Model + Vision OCR (see
+The iOS app can run extraction itself, on the phone's Apple Foundation Model, which reads the photos directly (iOS 27+, see
 `AI_PROVIDER.md` §10), instead of asking the backend to call Gemini/Anthropic. When it does, the
 request carries the already-parsed result instead of leaving `parsedPayload` for the server to fill
 in:
@@ -241,7 +241,7 @@ Response `200`:
 }
 ```
 
-`latencyMs` is how long extraction itself took — the vision call for `cloud`, OCR+generation for
+`latencyMs` is how long extraction itself took — the vision call for `cloud`, on-device generation for
 `on_device` (`clientLatencyMs` from the request, AI_PROVIDER.md §10) — not a network round-trip
 measurement. `null` while `status` is still `PARSING`, or if a client never reported one.
 

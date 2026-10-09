@@ -227,14 +227,17 @@ Unlike gemini/anthropic/ollama (§2, §4), this path does **not** implement `Ext
 does **not** live in `lib/ai/` — there's no server-side vision call to make an interface for. It's a
 client-side alternative to calling the backend's extraction at all.
 
-**How it works:** `apps/ios/HomeExpenses/Core/AI/OnDeviceReceiptExtractor.swift` runs Vision
-(`VNRecognizeTextRequest`) OCR on the captured images, then feeds the recognized text to Apple's
-on-device Foundation Model (`LanguageModelSession`, iOS 26+, Apple Intelligence-capable hardware only)
-with a `@Generable` struct mirroring `ParsedReceiptSchema` field-for-field. **This is text-only** — the
-model never sees the image, only whatever Vision's OCR read off it — so expect lower accuracy than the
-cloud vision path on cluttered, handwritten, or low-contrast receipts. `Core/AI/OnDeviceAvailability.swift`
-checks `SystemLanguageModel.default.availability` so the iOS Capture screen can offer this as a choice
-and gray it out (not hide it) when the device/OS/Apple-Intelligence-setting doesn't support it.
+**How it works:** `apps/ios/HomeExpenses/Core/AI/OnDeviceReceiptExtractor.swift` attaches the
+captured images (downscaled like the upload copies) directly to the prompt of Apple's on-device
+Foundation Model (`LanguageModelSession` with image `Attachment`s, **iOS 27+**, Apple
+Intelligence-capable hardware with Apple Intelligence turned on) and generates a `@Generable` struct
+mirroring `ParsedReceiptSchema` field-for-field, with greedy sampling so the same photos give the same
+parse. There is no separate OCR step (no Vision `VNRecognizeTextRequest`) — the model reads the image
+itself, like the cloud vision path. The on-device context window is small (8K tokens), so a long
+multi-photo receipt can exceed it; that surfaces as a "try fewer photos, or use Cloud" message.
+`Core/AI/OnDeviceAvailability.swift` checks the OS version and
+`SystemLanguageModel.default.availability` so the iOS Capture screen can offer this as a choice and
+gray it out (not hide it), with a reason, below iOS 27 or when Apple Intelligence is off/not ready.
 
 **Wire contract:** `POST /api/v1/receipts` gained `extractionMode: "cloud" | "on_device"` (default
 `"cloud"`) plus, for `on_device`, `clientParsedPayload` (validated server-side against the same
@@ -244,13 +247,12 @@ output shape is identical either way, `Receipt.parsedPayload`, the Review/confir
 schema, and `MonthlySummary` never need to know which path produced a given receipt.
 
 **Prompt versioning (CLAUDE.md rule 9 applies here too):** the instructions given to the on-device
-`LanguageModelSession` are versioned in `docs/prompts/extraction-on-device.v1.md`, kept in sync with
+`LanguageModelSession` are versioned in `docs/prompts/extraction-on-device.v2.md` (v1 was the OCR-text version), kept in sync with
 the literal string in `OnDeviceReceiptExtractor.swift`, same convention as `prompts.ts` documents for
 the cloud prompts. **Caveat:** `npm run eval:extraction` (the `prompt-eval-runner` fixture harness)
 takes receipt *images* and calls the configured cloud/`ExtractionProvider`; it does not exercise this
-OCR-text-based, on-device, Swift-only path. No eval run has been done for this prompt — building an
-on-device eval harness (labelled OCR-text fixtures, run on-device or in the simulator) is follow-up
-work, not something this change did.
+on-device, Swift-only path. No eval run has been done for this prompt — building an on-device eval
+harness (the same labelled receipt images, run on a device or in the simulator) is follow-up work.
 
 **Not built:** an explicit `Receipt.extractionMode` column — today the client vs. cloud distinction is
 inferred from the `model` string prefix (`"on-device:..."`). A dedicated enum column would need a

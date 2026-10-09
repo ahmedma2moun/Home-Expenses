@@ -79,7 +79,7 @@ final class ReviewViewModel: ObservableObject {
     /// (`runExtraction` in `receipts.ts`) — this is the defensive second check, not the primary one.
     let isReceipt: Bool
 
-    /// How long extraction took — the vision call for cloud, OCR+generation for on-device
+    /// How long extraction took — the vision call for cloud, model generation for on-device
     /// (AI_PROVIDER.md §10). `nil` if the server never reported one (shouldn't happen once parsing
     /// finishes, but this is a display nicety, not something worth a hard failure over).
     private let latencyMs: Int?

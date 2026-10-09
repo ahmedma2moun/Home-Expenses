@@ -13,17 +13,18 @@ enum OnDeviceAvailability: Equatable {
         return false
     }
 
-    /// Deployment target is iOS 17 (project.yml) but `SystemLanguageModel` needs iOS 26 — this is
-    /// safe to call from anywhere in the app regardless of OS version; it just reports unavailable
-    /// below 26 instead of failing to compile/link.
+    /// Deployment target is iOS 17 (project.yml), but the extractor attaches the receipt photos to
+    /// the prompt, and the on-device model only accepts image input from iOS 27 — iOS 26 has the
+    /// model but text-only, so it counts as unavailable here too. Safe to call from anywhere in the
+    /// app regardless of OS version; it just reports unavailable below 27.
     static func current() -> OnDeviceAvailability {
-        guard #available(iOS 26.0, *) else {
-            return .unavailable(reason: "Requires iOS 26 or later.")
+        guard #available(iOS 27.0, *) else {
+            return .unavailable(reason: "Requires iOS 27 or later.")
         }
         return currentOnSupportedOS()
     }
 
-    @available(iOS 26.0, *)
+    @available(iOS 27.0, *)
     private static func currentOnSupportedOS() -> OnDeviceAvailability {
         switch SystemLanguageModel.default.availability {
         case .available:

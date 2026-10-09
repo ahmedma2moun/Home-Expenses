@@ -13,12 +13,13 @@ See the `prompt-change` skill for the required procedure.
 
 ## extraction-on-device
 
-Separate family from `extraction` above — text-only, runs inside the iOS app via Apple's Foundation
+Separate family from `extraction` above — runs inside the iOS app via Apple's Foundation
 Models framework instead of a cloud `ExtractionProvider`. See `AI_PROVIDER.md` §10.
 
 | Version | Date | Hypothesis | Metric deltas | Decision |
 |---|---|---|---|---|
 | v1 | 2026-09-27 | Offer a private/offline extraction path on Apple Intelligence-capable devices: Vision OCR + on-device Foundation Model, same output contract as the cloud path | No baseline — the `eval:extraction` harness feeds images to a cloud provider and cannot exercise this OCR-text/on-device path; unverified, not just "no fixtures yet" | Live in code |
+| v2 | 2026-10-09 | Read the receipt photos directly (iOS 27 image input) instead of Vision OCR text, which garbled or dropped Arabic item names; keep names in their printed script; greedy sampling for repeatable parses | No baseline — same harness gap as v1; manual device testing only | Live in code; on-device path now iOS 27+ only, OCR path removed |
 
 ## comparison
 

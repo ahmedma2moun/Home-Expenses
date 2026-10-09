@@ -1,31 +1,31 @@
 import FoundationModels
 import UIKit
-import Vision
 
 enum OnDeviceExtractionError: LocalizedError {
     case unavailable(reason: String)
-    case noTextFound
+    case tooLarge
     case generationFailed
 
     var errorDescription: String? {
         switch self {
         case .unavailable(let reason): return reason
-        case .noTextFound: return "Couldn't read any text from this receipt."
+        case .tooLarge:
+            return "This receipt is too long to analyze on this iPhone. Try fewer photos, or use Cloud."
         case .generationFailed: return "The on-device model couldn't parse this receipt."
         }
     }
 }
 
-/// On-device alternative to the backend's cloud extraction call (AI_PROVIDER.md §10): Vision OCR
-/// reads the receipt images, then Apple's on-device Foundation Model turns that text into the same
-/// shape `ParsedReceiptDTO` already has. Text-only — the model never sees the image itself, only
-/// what OCR read off it — so accuracy trails the cloud vision path on cluttered/handwritten receipts.
-/// Instructions kept in sync with docs/prompts/extraction-on-device.v1.md (prompt-change skill).
+/// On-device alternative to the backend's cloud extraction call (AI_PROVIDER.md §10): the receipt
+/// photos are attached to the prompt and Apple's on-device Foundation Model reads them directly
+/// (image input, iOS 27+) into the same shape `ParsedReceiptDTO` already has. No separate OCR step:
+/// the model sees the image itself, the same way the cloud vision path does.
+/// Instructions kept in sync with docs/prompts/extraction-on-device.v2.md (prompt-change skill).
 enum OnDeviceReceiptExtractor {
-    /// Matches `docs/prompts/extraction-on-device.v1.md`. Recorded in `Receipt.model` (see
+    /// Matches `docs/prompts/extraction-on-device.v2.md`. Recorded in `Receipt.model` (see
     /// `modelIdentifier`) so the server can tell which prompt version produced a given receipt —
     /// there's no shared eval harness (yet) to catch the two drifting apart, per that doc's caveat.
-    static let promptVersion = "extraction-on-device.v1"
+    static let promptVersion = "extraction-on-device.v2"
 
     /// What `CaptureViewModel` sends as `clientModel` on `POST /receipts`.
     static let modelIdentifier = "on-device:apple-foundation-model:\(promptVersion)"
@@ -35,10 +35,10 @@ enum OnDeviceReceiptExtractor {
     /// `Decimal` — `@Generable` doesn't support `Decimal` as a field type, and the wire format is a
     /// string anyway (CLAUDE.md rule 1); `map(_:)` below converts each one through `MoneyString`
     /// before it reaches `ParsedReceiptDTO`, so nothing downstream ever sees a raw unparsed string.
-    @available(iOS 26.0, *)
+    @available(iOS 27.0, *)
     @Generable
     struct GeneratedReceipt {
-        @Guide(description: "True only if this text is clearly from a retail/restaurant receipt.")
+        @Guide(description: "True only if these photos clearly show a retail/restaurant receipt.")
         var isReceipt: Bool
         @Guide(description: "The merchant/store name, or null if not legible.")
         var merchant: String?
@@ -55,13 +55,13 @@ enum OnDeviceReceiptExtractor {
         var overallConfidence: Double?
     }
 
-    @available(iOS 26.0, *)
+    @available(iOS 27.0, *)
     @Generable
     struct GeneratedItem {
         var name: String
         @Guide(description: "Manufacturer/product-line name, or null if none is printed/legible.")
         var brand: String?
-        @Guide(description: "Quantity purchased; default to 1 if the text doesn't state one.")
+        @Guide(description: "Quantity purchased; default to 1 if the receipt doesn't state one.")
         var quantity: Double?
         var unit: String?
         @Guide(description: "Money amount with exactly two decimals, or null if unreadable.")
@@ -74,15 +74,15 @@ enum OnDeviceReceiptExtractor {
     }
 
     /// - Parameters:
-    ///   - images: the original captured images (not the downscaled upload bytes) — OCR accuracy
-    ///     benefits from the higher resolution.
+    ///   - images: the original captured images, in receipt order; downscaled here to the same long
+    ///     edge as the upload copies, since every attached image spends the model's small context
+    ///     window (8K tokens on-device).
     ///   - categorySlugs: the current active taxonomy from `GET /api/v1/categories`, fetched by the
     ///     caller — never hardcoded here, so this can't drift from the server's list.
     ///
-    /// Deliberately not `@MainActor`: OCR (`.accurate` recognition with language correction, over
-    /// up to 6 full-resolution photos) is exactly the kind of work that must not block the main
-    /// thread. `CaptureViewModel` (which is `@MainActor`) simply `await`s this from a background
-    /// executor hop, same as any other non-isolated async call.
+    /// Deliberately not `@MainActor`: downscaling up to 6 full-resolution photos and running the
+    /// model must not block the main thread. `CaptureViewModel` (which is `@MainActor`) simply
+    /// `await`s this from a background executor hop, same as any other non-isolated async call.
     static func extract(images: [UIImage], categorySlugs: [String]) async throws -> ParsedReceiptDTO {
         switch OnDeviceAvailability.current() {
         case .unavailable(let reason):
@@ -90,81 +90,55 @@ enum OnDeviceReceiptExtractor {
         case .available:
             break
         }
-        guard #available(iOS 26.0, *) else {
-            throw OnDeviceExtractionError.unavailable(reason: "Requires iOS 26 or later.")
+        guard #available(iOS 27.0, *) else {
+            throw OnDeviceExtractionError.unavailable(reason: "Requires iOS 27 or later.")
         }
         return try await extractOnSupportedOS(images: images, categorySlugs: categorySlugs)
     }
 
-    @available(iOS 26.0, *)
+    @available(iOS 27.0, *)
     private static func extractOnSupportedOS(
         images: [UIImage],
         categorySlugs: [String]
     ) async throws -> ParsedReceiptDTO {
-        let text = try recognizeText(in: images)
-        guard !text.isEmpty else { throw OnDeviceExtractionError.noTextFound }
-
+        let pages = images.map(ImagePreprocessor.downscaled)
         let session = LanguageModelSession(instructions: instructions(categorySlugs: categorySlugs))
-        let response: LanguageModelSession.Response<GeneratedReceipt>
+        // Greedy: the same photos give the same parse every time, instead of sampling a different
+        // reading per Analyze tap.
+        let options = GenerationOptions(sampling: .greedy)
         do {
-            response = try await session.respond(
-                to: "Receipt text, in reading order:\n\n\(text)",
-                generating: GeneratedReceipt.self
-            )
+            let response = try await session.respond(generating: GeneratedReceipt.self, options: options) {
+                "The receipt, one photo per page, in reading order:"
+                for page in pages {
+                    Attachment(page)
+                }
+            }
+            return map(response.content)
         } catch is CancellationError {
             // Pass through as-is — a cancelled "Analyze" (user backed out, view disappeared) is not
             // a parse failure, and `CaptureViewModel` needs to tell the two apart.
             throw CancellationError()
+        } catch LanguageModelSession.GenerationError.exceededContextWindowSize {
+            throw OnDeviceExtractionError.tooLarge
         } catch {
-            // The framework's own error cases (context window overflow from a long receipt's OCR
-            // text, guardrail refusals, etc.) don't have a single stable public type to switch on
-            // here; folded into one message rather than silently mis-describing a specific cause.
+            // Other framework errors (guardrail refusals, unsupported language, etc.) are folded
+            // into one message rather than mis-describing a specific cause.
             throw OnDeviceExtractionError.generationFailed
         }
-
-        return map(response.content)
-    }
-
-    private static func recognizeText(in images: [UIImage]) throws -> String {
-        var pages: [String] = []
-        for image in images {
-            guard let cgImage = image.cgImage else { continue }
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            request.recognitionLanguages = recognitionLanguages(for: request)
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            try handler.perform([request])
-            let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
-            pages.append(lines.joined(separator: "\n"))
-        }
-        return pages.joined(separator: "\n---\n")
-    }
-
-    /// Vision defaults to `["en-US"]` only, which turns Arabic item names into Latin-diacritic
-    /// garbage ("232.5îșîŚš") or drops them — the model then has nothing but prices to name items
-    /// with. Arabic first: on bilingual Egyptian receipts it's the item-name language, and Vision
-    /// treats the list as a priority order. Filtered to what this OS's recognizer actually supports,
-    /// since an unsupported code makes `perform` throw instead of falling back.
-    private static let preferredRecognitionLanguages = ["ar-SA", "en-US"]
-
-    private static func recognitionLanguages(for request: VNRecognizeTextRequest) -> [String] {
-        let supported = Set((try? request.supportedRecognitionLanguages()) ?? [])
-        let languages = preferredRecognitionLanguages.filter(supported.contains)
-        return languages.isEmpty ? ["en-US"] : languages
     }
 
     private static func instructions(categorySlugs: [String]) -> String {
         """
-        You extract structured data from OCR text of a retail receipt. Read every line item. \
-        Never invent a price you cannot read: set it to null and lower confidence. Assign each \
-        item exactly one category slug from this allowed list: \(categorySlugs.joined(separator: ", ")). \
-        Prefer the most specific matching category; use "other" only when nothing fits. If the text \
-        is not a receipt, set isReceipt to false.
+        You extract structured data from photos of a retail receipt. The receipt may be in Arabic, \
+        English, or both; copy item names in the language and script printed on the receipt, never \
+        transliterated or translated. Read every line item. Never invent a price you cannot read: set \
+        it to null and lower confidence. Assign each item exactly one category slug from this allowed \
+        list: \(categorySlugs.joined(separator: ", ")). Prefer the most specific matching category; use \
+        "other" only when nothing fits. If the photos are not of a receipt, set isReceipt to false.
         """
     }
 
-    @available(iOS 26.0, *)
+    @available(iOS 27.0, *)
     private static func map(_ generated: GeneratedReceipt) -> ParsedReceiptDTO {
         ParsedReceiptDTO(
             isReceipt: generated.isReceipt,
